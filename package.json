@@ -1,0 +1,9 @@
+{
+  "name": "autofill-studio-ui",
+  "private": true,
+  "type": "module",
+  "description": "Tests for the plain-JS UI in src/AutoFill.Web/wwwroot (no build step, no dependencies).",
+  "scripts": {
+    "test": "node --test \"tests/ui/**/*.test.js\""
+  }
+}

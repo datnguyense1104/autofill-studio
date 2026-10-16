@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.13" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="MysticMind.PostgresEmbed" Version="4.0.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <!--
+    MysticMind.PostgresEmbed (test-only) needs SharpCompress 0.34.x: every patched release (>= 0.48)
+    removed the API it calls. The advisory is a zip-slip when extracting untrusted archives; here
+    SharpCompress only unpacks the PostgreSQL binaries from Maven Central during test runs, and it
+    is not part of the shipped app.
+  -->
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-6c8g-7p36-r338" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AutoFill.Web\AutoFill.Web.csproj" />
+    <ProjectReference Include="..\..\src\AutoFill.Core\AutoFill.Core.csproj" />
+    <ProjectReference Include="..\..\src\AutoFill.Data\AutoFill.Data.csproj" />
+    <ProjectReference Include="..\..\src\AutoFill.Ai\AutoFill.Ai.csproj" />
+    <ProjectReference Include="..\..\src\AutoFill.Documents\AutoFill.Documents.csproj" />
+  </ItemGroup>
+
+</Project>

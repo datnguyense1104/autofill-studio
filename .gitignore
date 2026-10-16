@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+TestResults/
+.env
+.env.*
+!.env.example
+data/
+pg_embed/

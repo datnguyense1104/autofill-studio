@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.git/
+.vs/
+.vscode/
+.env
+.env.*
+data/
+tests/
+plans/
+node_modules/

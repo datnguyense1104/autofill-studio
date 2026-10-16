@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đăng nhập · AutoFill Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <section class="panel auth" aria-labelledby="auth-title">
+      <h1 id="auth-title" class="panel-title">AutoFill Studio</h1>
+      <p class="muted small">Điền mẫu Word, Excel tự động từ tài liệu nguồn — anh/chị chỉ cần xem lại.</p>
+      <div class="tabs" role="tablist">
+        <button type="button" class="btn btn-ghost" role="tab" id="tab-login" aria-selected="true" aria-controls="login-form">Đăng nhập</button>
+        <button type="button" class="btn btn-ghost" role="tab" id="tab-register" aria-selected="false" aria-controls="register-form">Đăng ký</button>
+      </div>
+
+      <form id="login-form" role="tabpanel" aria-labelledby="tab-login" novalidate>
+        <label>Email
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>Mật khẩu
+          <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="btn btn-primary">Đăng nhập</button>
+        <p class="form-message" role="alert"></p>
+      </form>
+
+      <form id="register-form" role="tabpanel" aria-labelledby="tab-register" hidden novalidate>
+        <label>Họ tên hoặc tên đơn vị
+          <input type="text" name="name" autocomplete="name" maxlength="100">
+        </label>
+        <label>Email
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>Mật khẩu <span class="muted">(ít nhất 8 ký tự)</span>
+          <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <button type="submit" class="btn btn-primary">Đăng ký</button>
+        <p class="form-message" role="alert"></p>
+        <p class="muted small">Sau khi đăng ký, tài khoản cần quản trị viên kích hoạt mới dùng được.</p>
+      </form>
+    </section>
+  </main>
+  <script type="module" src="login.js"></script>
+</body>
+</html>

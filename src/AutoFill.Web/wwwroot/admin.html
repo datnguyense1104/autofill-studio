@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quản lý tài khoản · AutoFill Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div>
+        <h1>Quản lý tài khoản</h1>
+        <p class="muted">Kích hoạt tài khoản mới đăng ký, hoặc khóa tài khoản không còn được dùng.</p>
+      </div>
+      <div class="user-bar">
+        <a class="btn btn-ghost" href="./">Về trang chính</a>
+        <button type="button" id="logout" class="btn btn-ghost">Đăng xuất</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="panel" aria-labelledby="users-title">
+      <h2 id="users-title" class="panel-title">Tài khoản</h2>
+      <div class="filters" role="group" aria-label="Lọc theo trạng thái">
+        <button type="button" class="btn btn-ghost btn-small" data-filter="all" aria-pressed="true">Tất cả</button>
+        <button type="button" class="btn btn-ghost btn-small" data-filter="pending" aria-pressed="false">Chờ kích hoạt</button>
+        <button type="button" class="btn btn-ghost btn-small" data-filter="active" aria-pressed="false">Đang hoạt động</button>
+        <button type="button" class="btn btn-ghost btn-small" data-filter="disabled" aria-pressed="false">Đã khóa</button>
+      </div>
+      <div class="table-wrap">
+        <table class="users">
+          <thead>
+            <tr><th scope="col">Họ tên</th><th scope="col">Email</th><th scope="col">Đăng ký</th><th scope="col">Trạng thái</th><th scope="col"><span class="sr-only">Thao tác</span></th></tr>
+          </thead>
+          <tbody id="user-rows"></tbody>
+        </table>
+      </div>
+      <p id="empty" class="muted" hidden>Không có tài khoản nào.</p>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

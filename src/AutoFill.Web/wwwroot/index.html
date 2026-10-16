@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoFill Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap wide topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 15 2 2 4-4"/></svg>
+        </span>
+        <div>
+          <h1>AutoFill Studio</h1>
+          <p class="brand-sub">Thả tài liệu nguồn, hệ thống điền theo mẫu — anh/chị chỉ xem lại chỗ cần kiểm tra</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" id="tour-start" class="btn btn-small"><span class="help-dot" aria-hidden="true">?</span><span class="help-label">Hướng dẫn</span></button>
+        <label class="workspace-pick" id="workspace-pick" hidden>
+          <span class="sr-only">Không gian làm việc</span>
+          <select id="workspace"></select>
+        </label>
+        <details class="user-menu">
+          <summary class="user-chip" aria-label="Tài khoản">
+            <span class="avatar" id="me-initial" aria-hidden="true"></span>
+            <span id="me" class="user-name"></span>
+            <svg class="chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="menu" role="menu">
+            <p id="me-email" class="menu-note muted small"></p>
+            <a id="admin-link" class="menu-item" role="menuitem" href="admin.html" hidden>Quản lý tài khoản</a>
+            <hr>
+            <button type="button" id="logout" class="menu-item danger" role="menuitem">Đăng xuất</button>
+          </div>
+        </details>
+      </div>
+    </div>
+  </header>
+
+  <!-- Narrow screens show one column at a time. -->
+  <div class="wrap view-tabs" role="tablist" aria-label="Chọn khu vực">
+    <button type="button" class="btn btn-ghost" role="tab" id="tab-run" aria-controls="run-pane" aria-selected="true">Điền mẫu</button>
+    <button type="button" class="btn btn-ghost" role="tab" id="tab-recipes" aria-controls="recipes-pane" aria-selected="false">Công thức</button>
+  </div>
+
+  <main id="layout" class="wrap wide layout" data-view="run">
+    <aside id="recipes-pane" class="panel pane-templates" aria-labelledby="recipes-title">
+      <div class="pane-head">
+        <h2 id="recipes-title" class="panel-title">Công thức của tôi</h2>
+        <a id="new-recipe" class="btn btn-primary btn-small" href="recipe.html">+ Tạo mới</a>
+      </div>
+      <input id="recipe-search" class="tpl-search" type="search" placeholder="Tìm công thức…" aria-label="Tìm công thức">
+      <ul id="recipe-list" class="tpl-list"></ul>
+      <p id="recipe-empty" class="muted small" hidden>Mỗi công thức gồm một file mẫu (Word hoặc Excel) và cách điền từng chỗ trong mẫu. Chưa có công thức nào, hãy bấm "Tạo mới".</p>
+    </aside>
+
+    <div id="run-pane" class="pane-compose">
+      <section class="panel" aria-labelledby="run-title">
+        <h2 id="run-title" class="panel-title">1. Tài liệu nguồn</h2>
+        <label id="source-drop" class="dropzone">
+          <input id="source-files" type="file" multiple accept=".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg">
+          <span class="dropzone-main">Thả file vào đây hoặc bấm để chọn</span>
+          <span class="muted small">PDF (cả bản scan), Word, Excel, ảnh chụp — nhiều file một lúc</span>
+        </label>
+        <ul id="source-list" class="file-list"></ul>
+      </section>
+
+      <section class="panel" aria-labelledby="pick-title">
+        <h2 id="pick-title" class="panel-title">2. Công thức</h2>
+        <div class="inline-form">
+          <select id="recipe-pick" aria-label="Chọn công thức"><option value="">— Chọn công thức —</option></select>
+          <button type="button" id="suggest" class="btn btn-ghost" disabled>Gợi ý công thức phù hợp</button>
+        </div>
+        <p id="suggest-status" class="muted small" hidden></p>
+        <ul id="suggestions" class="tpl-list"></ul>
+      </section>
+
+      <section class="panel" aria-labelledby="go-title">
+        <h2 id="go-title" class="panel-title">3. Điền mẫu</h2>
+        <div class="actions">
+          <button type="button" id="start-run" class="btn btn-primary" disabled>Điền mẫu</button>
+          <span id="start-hint" class="muted small">Cần ít nhất một tài liệu đã đọc xong và một công thức.</span>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="history-title">
+        <h2 id="history-title" class="panel-title">Lịch sử</h2>
+        <ul id="history" class="tpl-list"></ul>
+        <p id="history-empty" class="muted small" hidden>Chưa có lượt điền nào.</p>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
