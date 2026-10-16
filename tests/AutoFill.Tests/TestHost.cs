@@ -30,10 +30,22 @@ public sealed class PostgresServer : IAsyncLifetime
         // Folders an earlier run could not delete (see DisposeAsync).
         foreach (var old in Directory.Exists(InstancesDir) ? Directory.GetDirectories(InstancesDir) : [])
             if (Guid.TryParse(Path.GetFileName(old), out var id) && id != GoldenId) TryDelete(old);
-        await CopyGoldenAsync(Path.Combine(InstancesDir, instanceId.ToString()));
+        var dir = Path.Combine(InstancesDir, instanceId.ToString());
+        await CopyGoldenAsync(dir);
         Port = FreePort();
         server = new PgServer(Version, port: Port, instanceId: instanceId);
-        await server.StartAsync();
+        try
+        {
+            await server.StartAsync();
+        }
+        catch (Exception)
+        {
+            // The copy would not start (another OS's file rules...): a fresh instance always does, only slower.
+            TryDelete(dir);
+            Port = FreePort();
+            server = new PgServer(Version, port: Port, instanceId: instanceId);
+            await server.StartAsync();
+        }
     }
 
     /// <summary>Copies the golden instance (creating it once: start and stop a server, then keep its folder).</summary>
@@ -58,8 +70,13 @@ public sealed class PostgresServer : IAsyncLifetime
             GoldenLock.Release();
         }
         // Empty folders too: the server refuses to start without pg_notify, pg_twophase...
+        // On Linux/macOS the data folder must be private to its owner (0700), or the server refuses it.
         foreach (var dir in Directory.GetDirectories(golden, "*", SearchOption.AllDirectories).Prepend(golden))
-            Directory.CreateDirectory(Path.Combine(target, Path.GetRelativePath(golden, dir)));
+        {
+            var path = Path.Combine(target, Path.GetRelativePath(golden, dir));
+            if (OperatingSystem.IsWindows()) Directory.CreateDirectory(path);
+            else Directory.CreateDirectory(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
         var files = Directory.GetFiles(golden, "*", SearchOption.AllDirectories)
             .Where(f => Path.GetFileName(f) != "postmaster.pid").ToList();
         Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = 16 },
@@ -137,6 +154,8 @@ public sealed class TestApp(string connectionString, string adminEmail = "admin@
         builder.UseSetting("WORKERS", "0");
         builder.UseSetting("OPENAI_API_KEY", "");
         builder.UseSetting("COOKIE_SECURE", "false");
+        // The developer's .env (loaded by Program) must not change the app under test.
+        builder.UseSetting("BASE_PATH", "");
         foreach (var (key, value) in Settings) builder.UseSetting(key, value);
         builder.ConfigureTestServices(s => TestServices?.Invoke(s));
     }
