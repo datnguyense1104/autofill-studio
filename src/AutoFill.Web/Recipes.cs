@@ -55,6 +55,21 @@ public static class RecipeEndpoints
         };
     }
 
+    /// <summary>A new recipe at version 1 (from the builder, or straight from a template analysis).</summary>
+    public static async Task<Guid> CreateAsync(RecipeBody body, AppDbContext db, FileService files, Guid userId, CancellationToken ct)
+    {
+        var name = body.Name?.Trim();
+        if (string.IsNullOrEmpty(name) || name.Length > 200) throw new UserFacingException("Hãy đặt tên cho công thức (tối đa 200 ký tự)");
+        var version = await NewVersionAsync(body, files, userId, ct);
+        var recipe = new Recipe { Name = name, UseWhen = body.UseWhen?.Trim() ?? "", CurrentVersion = 1 };
+        version.RecipeId = recipe.Id;
+        version.Number = 1;
+        db.Recipes.Add(recipe);
+        db.RecipeVersions.Add(version);
+        await db.SaveChangesAsync(ct);
+        return recipe.Id;
+    }
+
     public static void MapRecipes(this IEndpointRouteBuilder app)
     {
         var recipes = app.MapGroup("/api/recipes").RequireAuthorization();
@@ -73,18 +88,9 @@ public static class RecipeEndpoints
 
         recipes.MapPost("/", async (RecipeBody body, HttpContext ctx, AppDbContext db, FileService files, CancellationToken ct) =>
         {
-            var name = body.Name?.Trim();
-            if (string.IsNullOrEmpty(name) || name.Length > 200) throw new UserFacingException("Hãy đặt tên cho công thức (tối đa 200 ký tự)");
             var me = CurrentUser.From(ctx);
             me.RequireEditor();
-            var version = await NewVersionAsync(body, files, me.Id, ct);
-            var recipe = new Recipe { Name = name, UseWhen = body.UseWhen?.Trim() ?? "", CurrentVersion = 1 };
-            version.RecipeId = recipe.Id;
-            version.Number = 1;
-            db.Recipes.Add(recipe);
-            db.RecipeVersions.Add(version);
-            await db.SaveChangesAsync(ct);
-            return Results.Ok(new { id = recipe.Id, version = 1 });
+            return Results.Ok(new { id = await CreateAsync(body, db, files, me.Id, ct), version = 1 });
         });
 
         // Saving a change makes a new version; runs keep the version they used.

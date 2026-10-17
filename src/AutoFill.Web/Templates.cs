@@ -8,17 +8,19 @@ namespace AutoFill.Web;
 
 /// <param name="Key">an upload to take; or <paramref name="FileId"/>, a template already uploaded (to analyse again)</param>
 /// <param name="SkipAi">only prepare the template (convert .doc/.xls); the user marks the slots by hand</param>
-public sealed record TemplateBody(string? Key, string? Name, Guid[]? FilledFileIds, Guid[]? ExampleFileIds, string? Notes, Guid? FileId = null, bool SkipAi = false);
+/// <param name="CreateRecipe">save the analysis as a new recipe straight away (named after the file): upload and done</param>
+public sealed record TemplateBody(string? Key, string? Name, Guid[]? FilledFileIds, Guid[]? ExampleFileIds, string? Notes,
+    Guid? FileId = null, bool SkipAi = false, bool CreateRecipe = false);
 public sealed record FillBody(Slot[]? Slots, Dictionary<string, SlotValue>? Values, bool Highlight = true);
 
 /// <summary>
 /// Analyses a template in the background. An old .doc/.xls template is converted once and the
 /// .docx/.xlsx copy becomes the template, so analysis and writing always use the same file.
 /// </summary>
-public sealed class TemplateAnalyzeJob(FileService files, SourceService sources, LegacyConverter legacy, TemplateAnalyzer analyzer) : IJobHandler
+public sealed class TemplateAnalyzeJob(AppDbContext db, FileService files, SourceService sources, LegacyConverter legacy, TemplateAnalyzer analyzer) : IJobHandler
 {
     public const string JobType = "template.analyze";
-    public sealed record Payload(Guid FileId, Guid[] FilledFileIds, Guid[] ExampleFileIds, string? Notes, bool SkipAi = false);
+    public sealed record Payload(Guid FileId, Guid[] FilledFileIds, Guid[] ExampleFileIds, string? Notes, bool SkipAi = false, bool CreateRecipe = false);
 
     public string Type => JobType;
 
@@ -47,7 +49,18 @@ public sealed class TemplateAnalyzeJob(FileService files, SourceService sources,
 
         await progress.ReportAsync("AI phân tích mẫu");
         var analysis = await analyzer.AnalyzeAsync(new TemplateInput(await files.ReadAsync(template, ct), kind, template.Name, filled, examples, payload.Notes), ct);
-        return JsonSerializer.Serialize(new { templateFileId = template.Id, name = template.Name, analysis }, SourceService.Json);
+
+        Guid? recipeId = null;
+        if (payload.CreateRecipe)
+        {
+            if (analysis.Slots.Count == 0)
+                throw new UserFacingException($"AI không tìm thấy chỗ cần điền trong \"{template.Name}\". Hãy thử lại, hoặc mở trang tạo công thức chi tiết để tự chọn");
+            await progress.ReportAsync("Lưu công thức");
+            recipeId = await RecipeEndpoints.CreateAsync(new RecipeBody(
+                Name: Path.GetFileNameWithoutExtension(template.Name), TemplateFileId: template.Id, Slots: [.. analysis.Slots],
+                Rules: [], Notes: payload.Notes, UseWhen: analysis.UseWhen, CheckMissing: null), db, files, job.CreatedBy ?? Guid.Empty, ct);
+        }
+        return JsonSerializer.Serialize(new { templateFileId = template.Id, name = template.Name, analysis, recipeId }, SourceService.Json);
     }
 
     static string Ext(StoredFile f) => f.Key[(f.Key.LastIndexOf('.') + 1)..];
@@ -90,7 +103,7 @@ public static class TemplateEndpoints
             file ??= await files.TakeUploadAsync(body.Key ?? "", body.Name ?? "", ct);
             foreach (var id in (body.FilledFileIds ?? []).Concat(body.ExampleFileIds ?? [])) await files.GetAsync(id, ct);
             var job = await queue.EnqueueAsync(TemplateAnalyzeJob.JobType,
-                new TemplateAnalyzeJob.Payload(file.Id, body.FilledFileIds ?? [], body.ExampleFileIds ?? [], body.Notes, body.SkipAi), CurrentUser.From(ctx).Id, ct);
+                new TemplateAnalyzeJob.Payload(file.Id, body.FilledFileIds ?? [], body.ExampleFileIds ?? [], body.Notes, body.SkipAi, body.CreateRecipe && !body.SkipAi), CurrentUser.From(ctx).Id, ct);
             return Results.Ok(new { fileId = file.Id, jobId = job.Id });
         });
 

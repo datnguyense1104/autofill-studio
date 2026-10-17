@@ -46,8 +46,12 @@
         </label>
         <div class="actions">
           <button type="button" id="analyze" class="btn btn-primary">Phân tích mẫu bằng AI</button>
-          <button type="button" id="analyze-manual" class="btn btn-ghost">Tự đánh dấu, không dùng AI</button>
+          <span class="muted small">AI tự tìm chỗ cần điền; sau đó anh/chị xem lại và sửa trên bản xem trước.</span>
         </div>
+        <p class="muted small" style="margin:0">
+          Không muốn dùng AI?
+          <button type="button" id="analyze-manual" class="btn btn-ghost btn-small">Tự chọn chỗ cần điền trên bản xem trước</button>
+        </p>
       </div>
     </section>
 
@@ -121,7 +125,7 @@
       <div class="spinner" aria-hidden="true"></div>
       <p id="busy-text" class="loading-text">Đang tải file lên…</p>
       <p class="muted small">AI đọc mẫu và đề xuất chỗ cần điền, thường mất dưới một phút.</p>
-      <button type="button" id="busy-manual" class="btn btn-ghost">Tự đánh dấu, không chờ AI</button>
+      <button type="button" id="busy-manual" class="btn btn-ghost">Không chờ AI, tự chọn chỗ cần điền</button>
     </div>
   </dialog>
 

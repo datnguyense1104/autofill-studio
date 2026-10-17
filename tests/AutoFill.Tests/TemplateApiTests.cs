@@ -67,6 +67,24 @@ public sealed class TemplateApiTests(PostgresServer pg) : IClassFixture<Postgres
     }
 
     [Fact]
+    public async Task Uploading_a_template_is_enough_to_get_a_recipe()
+    {
+        var client = await app.SignedInAsync("a@example.com");
+        var template = WordFixtures.Docx(WordFixtures.P("GIẤY MỜI"), WordFixtures.P("Kính mời ông Nguyễn Văn A đến Sở."));
+        var key = await UploadAsync(client, template, "Giấy mời.docx");
+
+        var started = await (await client.PostAsJsonAsync("/api/templates", new { key, name = "Giấy mời.docx", createRecipe = true })).Content.ReadFromJsonAsync<JsonObject>();
+        Assert.True(await app.Services.GetRequiredService<JobWorker>().RunOneAsync(CancellationToken.None));
+
+        var job = await client.GetFromJsonAsync<JsonObject>($"/api/jobs/{started!["jobId"]}");
+        var recipeId = job!["result"]!["recipeId"]!.GetValue<Guid>();
+        var recipe = await client.GetFromJsonAsync<JsonObject>($"/api/recipes/{recipeId}");
+        Assert.Equal("Giấy mời", recipe!["name"]!.GetValue<string>());
+        Assert.Equal("Khi cần mời công dân đến làm việc", recipe["useWhen"]!.GetValue<string>());
+        Assert.Equal("Họ tên", recipe["version"]!["slots"]![0]!["label"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Only_word_and_excel_files_can_be_templates()
     {
         var client = await app.SignedInAsync("a@example.com");

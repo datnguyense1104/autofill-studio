@@ -97,9 +97,18 @@ async function loadHistory() {
 }
 
 /** @param {object[]} recipes from the recipes pane */
+/** Rebuilds the recipe picker (a template just became a recipe), keeping the current choice. */
+export function refreshRecipePicker(recipes) {
+  const pick = $('#recipe-pick');
+  const current = pick.value;
+  pick.replaceChildren(h('option', { value: '' }, '— Chọn công thức —'), ...recipes.map((r) => h('option', { value: r.id }, r.name)));
+  if (recipes.some((r) => r.id === current)) pick.value = current;
+  updateButtons();
+}
+
 export function setupRunPane(recipes) {
   const pick = $('#recipe-pick');
-  pick.append(...recipes.map((r) => h('option', { value: r.id }, r.name)));
+  refreshRecipePicker(recipes);
   const wanted = new URLSearchParams(location.search).get('recipe');
   if (wanted && recipes.some((r) => r.id === wanted)) pick.value = wanted;
   pick.addEventListener('change', updateButtons);

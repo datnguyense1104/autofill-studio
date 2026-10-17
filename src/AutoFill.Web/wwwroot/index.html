@@ -51,11 +51,16 @@
     <aside id="recipes-pane" class="panel pane-templates" aria-labelledby="recipes-title">
       <div class="pane-head">
         <h2 id="recipes-title" class="panel-title">Công thức của tôi</h2>
-        <a id="new-recipe" class="btn btn-primary btn-small" href="recipe.html">+ Tạo mới</a>
+        <label id="new-recipe" class="btn btn-primary btn-small">
+          + Thêm mẫu
+          <input id="template-files" type="file" multiple accept=".docx,.doc,.xlsx,.xls" hidden>
+        </label>
       </div>
+      <ul id="template-pending" class="file-list"></ul>
       <input id="recipe-search" class="tpl-search" type="search" placeholder="Tìm công thức…" aria-label="Tìm công thức">
       <ul id="recipe-list" class="tpl-list"></ul>
-      <p id="recipe-empty" class="muted small" hidden>Mỗi công thức gồm một file mẫu (Word hoặc Excel) và cách điền từng chỗ trong mẫu. Chưa có công thức nào, hãy bấm "Tạo mới".</p>
+      <p id="recipe-empty" class="muted small" hidden>Chưa có công thức nào. Bấm "+ Thêm mẫu" và chọn file Word/Excel mẫu (dùng luôn văn bản đã làm lần trước, không cần tô màu): hệ thống tự tìm chỗ cần điền và lưu thành công thức.</p>
+      <p class="muted small"><a href="recipe.html">Tạo công thức chi tiết (tự chọn chỗ cần điền)</a></p>
     </aside>
 
     <div id="run-pane" class="pane-compose">
