@@ -37,6 +37,11 @@ public sealed class BasePathTests(PostgresServer pg) : IClassFixture<PostgresSer
         Assert.Contains("AutoFill Studio", await page.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/auto-fill/health")).StatusCode);
 
+        // Scripts are revalidated, so a deploy never mixes a new page with cached old modules.
+        var script = await client.GetAsync("/auto-fill/app.js");
+        Assert.Equal(HttpStatusCode.OK, script.StatusCode);
+        Assert.True(script.Headers.CacheControl?.NoCache);
+
         (await client.PostAsJsonAsync("/auto-fill/api/auth/register", new { email = "admin@example.com", name = "A", password = "password-123" })).EnsureSuccessStatusCode();
         var login = await client.PostAsJsonAsync("/auto-fill/api/auth/login", new { email = "admin@example.com", password = "password-123" });
         login.EnsureSuccessStatusCode();

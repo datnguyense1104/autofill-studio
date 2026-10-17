@@ -120,7 +120,13 @@ public static class Startup
         app.Use(SecurityHeaders(settings));
         app.Use(UserErrors);
         app.UseDefaultFiles();
-        app.UseStaticFiles();
+        // Pages and their modules must change together: without this, Cloudflare and browsers keep
+        // .js/.css for hours and a new index.html meets old scripts after a deploy. Unchanged files
+        // still cost only a 304.
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            OnPrepareResponse = f => f.Context.Response.Headers.CacheControl = "no-cache",
+        });
         app.UseAuthentication();
         app.Use(CurrentUser.Resolve);
         app.UseAuthorization();
