@@ -10,20 +10,34 @@ Một container (web + API + worker nền) chạy bằng Docker, ra Internet qua
 | Docker | Windows: Docker Desktop, bật "Start Docker Desktop when you sign in". Linux: Docker Engine + compose plugin |
 | Supabase | Project mới riêng cho AutoFill. Lấy: chuỗi kết nối Session pooler (URI), Project URL, service_role key. Bucket private tự tạo khi app chạy lần đầu |
 | AI | `OPENAI_API_KEY` (OpenAI) hoặc key + `OPENAI_BASE_URL` (Azure OpenAI) |
-| Cloudflare | Zero Trust → Networks → Tunnels (Connectors) → Create tunnel → chạy lệnh cài `cloudflared` cho Windows mà trang đưa ra (cài thành dịch vụ Windows, tự chạy khi bật máy). Sau đó bấm tên tunnel → tab **Published application routes** (tên cũ "Public Hostname") → thêm: subdomain **để trống**, domain `ntdat.qzz.io`, path `auto-fill/*`, service `HTTP` `localhost:8080`. Trong `.env` đặt `BASE_PATH=/auto-fill` |
-| Cách khác cho tunnel | Không cài dịch vụ Windows: chép token vào `CLOUDFLARE_TUNNEL_TOKEN`, service route là `app:8080`, chạy `docker compose --profile tunnel up -d --build`. Chỉ dùng **một** trong hai cách |
+| Tên miền | `tdatnguyen.id.vn` phải do Cloudflare quản lý DNS, **cùng tài khoản** với tunnel (xem mục "Chuyển DNS sang Cloudflare" bên dưới). App chạy ở `https://auto-fill.tdatnguyen.id.vn/`, `BASE_PATH` để trống |
+| Cloudflare Tunnel | dash.cloudflare.com → **Networking → Tunnels** → Create tunnel → chạy lệnh cài `cloudflared` cho Windows mà trang đưa ra (dịch vụ Windows, tự chạy khi bật máy). Bấm tên tunnel → tab **Routes** → **Add route** → **Published application**: subdomain `auto-fill`, domain `tdatnguyen.id.vn`, path trống, Service URL `http://localhost:8080` |
+| Cách khác cho tunnel | Không cài dịch vụ Windows: chép token vào `CLOUDFLARE_TUNNEL_TOKEN`, Service URL là `http://app:8080`, chạy `docker compose --profile tunnel up -d --build`. Chỉ dùng **một** trong hai cách |
 
-**Lưu ý khi dùng `ntdat.qzz.io/auto-fill`:** cả tên miền `ntdat.qzz.io` chỉ trỏ được vào **một** tunnel. Nếu trang gốc `ntdat.qzz.io` đang chạy ở chỗ khác (máy khác, Vercel…), phải đưa trang gốc vào cùng tunnel này (thêm một public hostname không có path, đặt sau dòng `auto-fill/*`), hoặc dùng tên miền con riêng (ví dụ `auto-fill.ntdat.qzz.io`, khi đó để `BASE_PATH` trống). Các tên miền con khác như `sfdr-trans.ntdat.qzz.io` không bị ảnh hưởng.
+### Chuyển DNS của tdatnguyen.id.vn sang Cloudflare (một lần)
+
+Tên miền đang dùng DNS của PA Việt Nam và đang có site khác, nên phải giữ nguyên các bản ghi cũ:
+
+| Bản ghi hiện có (16/10/2026) | Dùng cho | Trong Cloudflare để |
+|---|---|---|
+| `A tdatnguyen.id.vn → 216.24.57.1` | site gốc (Render) | DNS only (mây xám) |
+| `CNAME www → 7b3d036e19c793fa.vercel-dns-017.com` | site www (Vercel) | DNS only (mây xám) |
+| `MX tdatnguyen.id.vn → mail92112.maychuemail.com`, `mx92112.maychuemail.net` | email | (MX không có mây) |
+| `CNAME mail → mail92112.maychuemail.com` | webmail | DNS only (mây xám) |
+
+1. dash.cloudflare.com (đúng tài khoản có tunnel) → **Add a domain** → `tdatnguyen.id.vn` → gói **Free**. Cloudflare tự quét bản ghi: đối chiếu với bảng trên, thiếu thì thêm tay, đổi các bản ghi sang **DNS only**. Nếu trang quản lý DNS của PA Việt Nam còn bản ghi TXT (SPF/DKIM cho email) thì chép sang luôn.
+2. Cloudflare đưa 2 nameserver (dạng `xxx.ns.cloudflare.com`). Vào trang quản lý tên miền PA Việt Nam → đổi **Nameserver/DNS server** sang 2 địa chỉ đó (không phải sửa bản ghi DNS). Hiệu lực sau vài giờ, tối đa 24–48 giờ; Cloudflare gửi email khi tên miền "Active".
+3. Khi Active: thêm route của tunnel như bảng trên. Cloudflare tự tạo bản ghi `auto-fill` trỏ vào tunnel.
 
 ## 2. Cài đặt
 
 ```bash
 git clone <repo> autofill-studio && cd autofill-studio
-cp .env.example .env      # điền DATABASE_URL, SUPABASE_*, OPENAI_*, ADMIN_EMAIL, CLOUDFLARE_TUNNEL_TOKEN
+cp .env.example .env      # điền DATABASE_URL, SUPABASE_*, OPENAI_*, ADMIN_EMAIL; BASE_PATH để trống
 docker compose up -d --build
 ```
 
-Kiểm tra trên máy: `http://localhost:8080/auto-fill/health` trả `{"ok":true}`. Từ ngoài: mở `https://ntdat.qzz.io/auto-fill/`.
+Kiểm tra trên máy: `http://localhost:8080/health` trả `{"ok":true}`. Từ ngoài: mở `https://auto-fill.tdatnguyen.id.vn/`.
 Đăng ký bằng email trong `ADMIN_EMAIL` → tài khoản quản trị dùng ngay; người khác đăng ký rồi chờ quản trị kích hoạt ở `/admin.html`.
 
 ## 3. Cập nhật phiên bản
@@ -36,7 +50,7 @@ Database tự migrate khi app khởi động; mọi bảng luôn bật Row Level
 ## 4. Theo dõi
 
 - Log: `docker compose logs -f app` (mỗi dòng là một JSON).
-- Uptime: tạo monitor HTTP (UptimeRobot / Healthchecks.io) gọi `https://ntdat.qzz.io/auto-fill/health` mỗi 5 phút. Lỗi 530 từ Cloudflare = máy tắt hoặc tunnel rớt.
+- Uptime: tạo monitor HTTP (UptimeRobot / Healthchecks.io) gọi `https://auto-fill.tdatnguyen.id.vn/health` mỗi 5 phút. Lỗi 530 từ Cloudflare = máy tắt hoặc tunnel rớt.
 - Chi phí AI: bảng `ai_logs` (token theo từng lần gọi, theo job); mỗi lượt chạy hiện tổng token ở màn hình duyệt.
 
 ## 5. Biến môi trường
@@ -49,7 +63,7 @@ Database tự migrate khi app khởi động; mọi bảng luôn bật Row Level
 | `MAX_FILE_MB` | 50 | Kích thước file tối đa |
 | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` | —, `gpt-6-luna`, trống | AI; đặt `OPENAI_BASE_URL` khi dùng Azure OpenAI |
 | `MAX_SOURCE_CHARS` | 120000 | Số ký tự nguồn tối đa đưa vào prompt (dài hơn: cắt và cảnh báo) |
-| `BASE_PATH` | trống | Đường dẫn app chạy dưới đó: `/auto-fill` cho `ntdat.qzz.io/auto-fill/`. Cookie đăng nhập chỉ gửi trong đường dẫn này |
+| `BASE_PATH` | trống | Để trống khi app có tên miền riêng (`auto-fill.tdatnguyen.id.vn`). Chỉ đặt (vd `/auto-fill`) khi app chạy dưới một đường dẫn của site khác; cookie đăng nhập khi đó chỉ gửi trong đường dẫn này |
 | `ADMIN_EMAIL` | — | Tài khoản quản trị |
 | `WORKERS` | 2 | Số việc nền chạy song song trong container |
 | `SOFFICE_PATH` | `/usr/bin/soffice` trong image | LibreOffice cho .doc/.xls |

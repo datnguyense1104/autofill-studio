@@ -26,7 +26,7 @@ cp .env.example .env              # điền DATABASE_URL, SUPABASE_*, OPENAI_API
 dotnet run --project src/AutoFill.Web
 ```
 
-Mở trang (khi `.env` có `BASE_PATH=/auto-fill` thì địa chỉ là `http://localhost:<cổng>/auto-fill/`), đăng ký bằng email trong `ADMIN_EMAIL` → tài khoản quản trị dùng được ngay; tài khoản khác chờ quản trị kích hoạt ở `/admin.html`.
+Mở trang (nếu `.env` đặt `BASE_PATH`, ví dụ `/auto-fill`, thì địa chỉ là `http://localhost:<cổng>/auto-fill/`), đăng ký bằng email trong `ADMIN_EMAIL` → tài khoản quản trị dùng được ngay; tài khoản khác chờ quản trị kích hoạt ở `/admin.html`.
 Cơ sở dữ liệu tự migrate khi khởi động; mọi bảng được bật Row Level Security (chặn Data API công khai của Supabase).
 
 File .doc/.xls cần LibreOffice (đã có sẵn trong Docker image). Trên máy dev không cài LibreOffice thì chỉ hai loại này báo lỗi; test chuyển đổi tự bỏ qua.

@@ -14,7 +14,7 @@ Plan and status: `plans/261015-1505-generic-autofill-platform/plan.md` (7 phases
 - Backend .NET 10. UI = plain HTML/CSS/JS modules in `src/AutoFill.Web/wwwroot`, same look as the Sở Ngoại vụ app (no Blazor/React).
 - Templates need **no red marking**: AI analyzes the template to find slots; the user confirms/edits.
 - DB = PostgreSQL on a **new** Supabase project; files in a private Supabase Storage bucket.
-- Deploy = Docker on an always-on **Windows** office machine, published via Cloudflare Tunnel at **https://ntdat.qzz.io/auto-fill/** (path, not subdomain: `BASE_PATH=/auto-fill`). UI URLs must stay relative (no leading `/`).
+- Deploy = Docker on an always-on **Windows** office machine, published via Cloudflare Tunnel at **https://auto-fill.tdatnguyen.id.vn/** (chosen 2026-10-17; DNS moves from PA Vietnam to Cloudflare, root/www/MX records of that domain belong to other sites and email and must be kept). `BASE_PATH` stays empty; path-prefix support remains, so UI URLs must stay relative (no leading `/`).
 - Numbers/codes/Y-N come from rules or lookups, not AI. Every value carries evidence (page + quote).
 
 ## Conventions

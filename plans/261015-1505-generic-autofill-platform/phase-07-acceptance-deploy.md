@@ -29,7 +29,7 @@ Nếu phải sửa code lõi cho 1 recipe → tổng quát hóa thành tính nă
 - Mất điện/mạng = hệ thống ngừng → khuyến nghị UPS.
 
 ## Câu hỏi còn mở
-1. Máy văn phòng chạy Windows hay Linux? Cấu hình (RAM ≥ 8GB khuyến nghị vì LibreOffice + .NET)? — Địa chỉ đã chốt 2026-10-16: `https://ntdat.qzz.io/auto-fill/` (`BASE_PATH=/auto-fill`); cần biết trang gốc `ntdat.qzz.io` đang chạy ở đâu (xem lưu ý trong docs/deployment.md).
+1. Máy văn phòng chạy Windows hay Linux? Cấu hình (RAM ≥ 8GB khuyến nghị vì LibreOffice + .NET)? — Địa chỉ chốt 2026-10-17: `https://auto-fill.tdatnguyen.id.vn/` (`ntdat.qzz.io` nằm ở tài khoản Cloudflare khác với tunnel); DNS `tdatnguyen.id.vn` chuyển từ PA Việt Nam sang Cloudflare, giữ bản ghi Render/Vercel/email (bảng trong docs/deployment.md).
 2. Nhà cung cấp AI mặc định: OpenAI trực tiếp (gpt-6-luna như SNV) hay Azure OpenAI? Code hỗ trợ cả hai.
 3. Tên sản phẩm chính thức (tạm "AutoFill Studio") và repo GitHub (org GTS-GR?).
 4. Có tính phí/giới hạn số lượt chạy theo workspace ngay từ đầu không?
