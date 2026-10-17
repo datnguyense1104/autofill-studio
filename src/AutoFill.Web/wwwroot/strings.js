@@ -22,8 +22,6 @@ export const T = {
   confirmLeave: 'Có thay đổi chưa lưu. Rời trang?',
   noSlots: 'Chưa có chỗ cần điền. Bôi chọn chữ trong bản xem trước (Word) hoặc bấm vào ô (Excel) để thêm.',
   lowConfidence: 'AI chưa chắc',
-  exportBlocked: 'Còn ô bắt buộc chưa có giá trị',
-  exportWarn: (n) => `Còn ${n} ô có cảnh báo chưa đánh dấu "Đã xem". Vẫn xuất file?`,
   reviseAsk: 'Cần AI sửa thế nào? (ví dụ: "bổ sung giờ hẹn", "viết ngắn hơn")',
   missingAsk: 'Bổ sung vào ô nào?',
   sourceRead: (pages, ai) => `${pages} trang${ai ? `, AI đọc ${ai} trang scan` : ''}`,

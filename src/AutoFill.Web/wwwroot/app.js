@@ -55,8 +55,7 @@ try {
     { title: 'Chào mừng đến AutoFill Studio', text: 'Hệ thống đọc tài liệu nguồn, điền vào file mẫu Word/Excel theo "công thức", rồi để anh/chị duyệt lại trước khi xuất file.' },
     { selector: '#recipes-pane', title: 'Công thức', text: 'Bấm "+ Thêm mẫu" và chọn file Word/Excel mẫu (có thể là văn bản đã làm lần trước). AI tự tìm chỗ cần điền và lưu thành công thức, không cần làm gì thêm.' },
     { selector: '#source-drop', title: 'Tài liệu nguồn', text: 'Thả các file nguồn (PDF, bản scan, Word, Excel) vào đây. Bản scan được AI đọc lại nguyên văn.' },
-    { selector: '#pick-title', title: 'Chọn công thức', text: 'Chọn tay, hoặc bấm "Gợi ý" để AI chọn công thức hợp với tài liệu vừa thả.' },
-    { selector: '#start-run', title: 'Điền và duyệt', text: 'Bấm "Điền mẫu", hệ thống điền ở nền rồi mở màn hình duyệt: mỗi giá trị có trích dẫn từ nguồn để kiểm tra.' },
+    { selector: '#start', title: 'Xử lý', text: 'Bấm "Xử lý": hệ thống tự đọc tài liệu, tự chọn công thức phù hợp và điền. Kết quả hiện ngay bên dưới, chỉ những chỗ cần xem được liệt kê; xong bấm "Tải file".' },
   ]);
 } catch (err) {
   if (err.status !== 401) toast(err.message, true);

@@ -64,39 +64,43 @@
     </aside>
 
     <div id="run-pane" class="pane-compose">
-      <section class="panel" aria-labelledby="run-title">
+      <section id="upload" class="panel" aria-labelledby="run-title">
         <h2 id="run-title" class="panel-title">1. Tài liệu nguồn</h2>
-        <label id="source-drop" class="dropzone">
+        <label id="source-drop" class="dropzone" for="source-files">
           <input id="source-files" type="file" multiple accept=".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg">
-          <span class="dropzone-main">Thả file vào đây hoặc bấm để chọn</span>
-          <span class="muted small">PDF (cả bản scan), Word, Excel, ảnh chụp — nhiều file một lúc</span>
+          <span class="dropzone-main">Kéo thả file vào đây</span>
+          <span class="muted">hoặc bấm để chọn file · PDF (cả bản scan), Word, Excel, ảnh — có thể chọn nhiều file của cùng một việc</span>
         </label>
         <ul id="source-list" class="file-list"></ul>
-      </section>
-
-      <section class="panel" aria-labelledby="pick-title">
-        <h2 id="pick-title" class="panel-title">2. Công thức</h2>
-        <div class="inline-form">
-          <select id="recipe-pick" aria-label="Chọn công thức"><option value="">— Chọn công thức —</option></select>
-          <button type="button" id="suggest" class="btn btn-ghost" disabled>Gợi ý công thức phù hợp</button>
-        </div>
-        <p id="suggest-status" class="muted small" hidden></p>
-        <ul id="suggestions" class="tpl-list"></ul>
-      </section>
-
-      <section class="panel" aria-labelledby="go-title">
-        <h2 id="go-title" class="panel-title">3. Điền mẫu</h2>
         <div class="actions">
-          <button type="button" id="start-run" class="btn btn-primary" disabled>Điền mẫu</button>
-          <span id="start-hint" class="muted small">Cần ít nhất một tài liệu đã đọc xong và một công thức.</span>
+          <button type="button" id="start" class="btn btn-primary" disabled>Xử lý</button>
+          <button type="button" id="reset" class="btn btn-ghost" hidden>Làm việc khác</button>
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="history-title">
-        <h2 id="history-title" class="panel-title">Lịch sử</h2>
-        <ul id="history" class="tpl-list"></ul>
-        <p id="history-empty" class="muted small" hidden>Chưa có lượt điền nào.</p>
+      <section id="progress" class="panel" hidden aria-live="polite" aria-labelledby="progress-title">
+        <h2 id="progress-title" class="panel-title">2. Đang xử lý</h2>
+        <ol id="steps" class="steps"></ol>
+        <p class="muted small">Mỗi file mới cần AI đọc, có thể mất từ vài giây đến vài phút. File đã đọc trước đó sẽ xong ngay.</p>
       </section>
+
+      <section id="no-match" class="panel" hidden aria-labelledby="no-match-title">
+        <h2 id="no-match-title" class="panel-title">Chưa tìm được công thức phù hợp</h2>
+        <p id="no-match-reason"></p>
+        <div class="inline-form">
+          <label for="manual-recipe">Chọn công thức:</label>
+          <select id="manual-recipe"></select>
+          <button type="button" id="manual-fill" class="btn btn-primary">Điền theo công thức này</button>
+        </div>
+      </section>
+
+      <div id="results" class="results"></div>
+
+      <details class="panel ok-list" id="history-panel">
+        <summary>Lịch sử</summary>
+        <ul id="history" class="tpl-list" style="margin-top:12px"></ul>
+        <p id="history-empty" class="muted small" hidden>Chưa có lượt điền nào.</p>
+      </details>
     </div>
   </main>
 

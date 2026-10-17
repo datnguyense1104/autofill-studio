@@ -1,8 +1,24 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  applyValues, colToIndex, describeLocation, formatElapsed, indexToCol, isEmptyValue, nextSlotId, parseAddress, ruleRows, segments, selectionToPhrase,
+  applyValues, colToIndex, contextOf, describeLocation, formatElapsed, indexToCol, isEmptyValue, nextSlotId, parseAddress, reviewStatus, ruleRows, segments, selectionToPhrase,
 } from '../../src/AutoFill.Web/wwwroot/slots.js';
+
+test('the review shows each value inside its sentence, and sorts slots like the letter app', () => {
+  const paragraphs = [{ index: 0, text: 'Kính mời ông Nguyễn Văn A, quốc tịch Úc.', kind: 'prose' }];
+  const slots = [phrase('name', 0, 13, 12), phrase('nation', 0, 37, 2)];
+  const pieces = contextOf(paragraphs, slots, { name: { text: 'Trần B' }, nation: { text: 'Anh' } }, 'nation');
+  assert.equal(pieces.map((p) => p.text).join(''), 'Kính mời ông Trần B, quốc tịch Anh.');
+  assert.deepEqual(pieces.filter((p) => p.current).map((p) => p.text), ['Anh']);
+  assert.equal(contextOf(paragraphs, [{ id: 'b', locations: [{ kind: 'section', from: 0, to: 0 }] }], {}, 'b'), null);
+
+  const slot = { id: 's', required: true };
+  assert.equal(reviewStatus(slot, { value: { text: '' }, warnings: [] }), 'blocked');
+  assert.equal(reviewStatus(slot, { value: { text: 'x' }, warnings: ['Số lạ'] }), 'review');
+  assert.equal(reviewStatus(slot, { value: { text: 'x' }, warnings: ['Số lạ'], reviewed: true }), 'ok');
+  assert.equal(reviewStatus(slot, { value: { text: '' }, reviewedValue: { text: 'sửa' }, warnings: ['Thiếu'] }), 'ok');
+  assert.equal(reviewStatus({ id: 'o', required: false }, { value: { text: '' }, warnings: [] }), 'ok');
+});
 
 const phrase = (id, paragraph, start, length, wholeParagraph = false) => ({ id, label: id, locations: [{ kind: 'phrase', paragraph, start, length, wholeParagraph }] });
 

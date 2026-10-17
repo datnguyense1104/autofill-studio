@@ -232,7 +232,7 @@ public static class RunEndpoints
         });
 
         // The filled file. Refused while a required slot has no value; warnings were for the reviewer to confirm.
-        runs.MapGet("/{id:guid}/export", async (Guid id, AppDbContext db, FileService files, RunService service, CancellationToken ct) =>
+        runs.MapGet("/{id:guid}/export", async (Guid id, string? fileName, bool? highlight, AppDbContext db, FileService files, RunService service, CancellationToken ct) =>
         {
             var (run, version, recipe) = await service.LoadAsync(id, track: true, ct);
             if (run.Status is RunStatus.Queued or RunStatus.Running) throw new UserFacingException("Lượt chạy chưa xong");
@@ -244,12 +244,14 @@ public static class RunEndpoints
 
             var template = await files.GetAsync(version.TemplateFileId, ct);
             var kind = version.Kind == "excel" ? TemplateKind.Excel : TemplateKind.Word;
-            var bytes = TemplateFiller.Fill(await files.ReadAsync(template, ct), kind, slots, values, highlight: false);
+            var bytes = TemplateFiller.Fill(await files.ReadAsync(template, ct), kind, slots, values, highlight: highlight ?? false);
             run.Status = RunStatus.Done;
             run.UpdatedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(ct);
             var ext = kind == TemplateKind.Excel ? "xlsx" : "docx";
-            var name = string.Concat($"{recipe.Name} - {DateTime.Now:yyyy-MM-dd}".Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            var wanted = string.IsNullOrWhiteSpace(fileName) ? $"{recipe.Name} - {DateTime.Now:yyyy-MM-dd}" : fileName.Trim();
+            if (wanted.EndsWith($".{ext}", StringComparison.OrdinalIgnoreCase)) wanted = wanted[..^(ext.Length + 1)];
+            var name = string.Concat(wanted.Take(150).Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
             return Results.File(bytes, template.ContentType, $"{name}.{ext}");
         });
     }

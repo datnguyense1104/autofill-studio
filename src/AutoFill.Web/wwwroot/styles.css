@@ -309,6 +309,9 @@ input[type="email"] {
 .item .field textarea { width: 100%; }
 .item.focus { box-shadow: var(--focus); }
 .item.loading { opacity: 0.5; pointer-events: none; }
+.link-button { font: inherit; background: none; border: 0; padding: 0; color: var(--primary); cursor: pointer; text-align: left; }
+.link-button:hover { text-decoration: underline; }
+.results { display: grid; gap: 0; }
 .letter-body mark { cursor: pointer; }
 .evidence { margin: 0; padding-left: 18px; font-size: 0.875rem; }
 .evidence button { font: inherit; background: none; border: 0; padding: 0; color: var(--primary); cursor: pointer; text-align: left; }

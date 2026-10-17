@@ -3,67 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Duyệt kết quả · AutoFill Studio</title>
+  <title>Kết quả · AutoFill Studio</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="wrap wide topbar-inner">
+    <div class="wrap topbar-inner">
       <div>
-        <h1 id="run-title">Duyệt kết quả</h1>
+        <h1>Kết quả điền mẫu</h1>
         <p id="run-sub" class="muted"></p>
       </div>
       <div class="user-bar">
-        <button type="button" id="tour-start" class="btn btn-small"><span class="help-dot" aria-hidden="true">?</span><span class="help-label">Hướng dẫn</span></button>
         <a class="btn btn-ghost" href="./">Về trang chính</a>
       </div>
     </div>
   </header>
 
-  <main class="wrap wide">
+  <main class="wrap">
     <section id="progress" class="panel" hidden aria-live="polite">
       <h2 class="panel-title">Đang điền mẫu</h2>
-      <ol class="steps" id="steps"></ol>
-      <p class="muted small">Có thể đóng trang này; lượt chạy vẫn tiếp tục và có trong Lịch sử.</p>
+      <p id="progress-text" class="muted"></p>
+      <p class="muted small">Có thể đóng trang này; việc điền vẫn tiếp tục và có trong Lịch sử ở trang chính.</p>
     </section>
-
-    <section id="failed" class="panel" hidden>
-      <div class="notice"><p id="failed-text"></p></div>
-      <div class="actions"><button type="button" id="rerun" class="btn btn-primary">Chạy lại</button></div>
-    </section>
-
-    <div id="review" hidden>
-      <div class="panel">
-        <div class="summary" id="summary"></div>
-        <div id="run-notes"></div>
-        <div class="actions" style="margin-top:12px">
-          <button type="button" id="export" class="btn btn-primary">Xuất file</button>
-          <span id="export-hint" class="muted small"></span>
-        </div>
-      </div>
-
-      <div class="layout" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
-        <section class="panel" aria-labelledby="preview-title">
-          <h2 id="preview-title" class="panel-title">Bản xem trước</h2>
-          <p class="muted small">Vàng: đã điền. Đỏ: cần xem lại. Bấm vào chỗ đã điền để tới ô tương ứng.</p>
-          <div id="preview"></div>
-        </section>
-        <section class="panel" aria-labelledby="values-title">
-          <h2 id="values-title" class="panel-title">Giá trị đã điền</h2>
-          <div id="missing"></div>
-          <div id="values" class="items"></div>
-        </section>
-      </div>
-    </div>
+    <article id="card" class="card loading"></article>
   </main>
-
-  <dialog id="page-dialog" class="modal">
-    <div class="modal-head">
-      <h2 id="page-title">Trang nguồn</h2>
-      <button type="button" class="btn btn-ghost btn-small" id="page-close" aria-label="Đóng">✕</button>
-    </div>
-    <div class="modal-body"><div id="page-text" class="page-text"></div></div>
-  </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="review-view.js"></script>

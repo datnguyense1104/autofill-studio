@@ -116,6 +116,32 @@ export function applyValues(paragraphs, slots, values) {
   return out;
 }
 
+/**
+ * The sentence around a slot as the review shows it: its (first) paragraph with every value
+ * written in, the slot itself flagged. Null for a section or a spreadsheet slot.
+ * @returns {{text:string, current?:boolean}[]|null}
+ */
+export function contextOf(paragraphs, slots, values, slotId) {
+  const slot = slots.find((s) => s.id === slotId);
+  const loc = slot?.locations.find((l) => l.kind === 'phrase');
+  const p = loc && paragraphs.find((x) => x.index === loc.paragraph);
+  if (!p) return null;
+  const [block] = applyValues([p], slots, values);
+  if (!block) return null;
+  return block.pieces.map((x) => ({ text: x.text, current: x.slot?.id === slotId }));
+}
+
+/**
+ * Review status of a slot, as in the letter app: "blocked" (required and still empty: must be
+ * fixed), "review" (the checks raised something and nobody looked yet), or "ok".
+ */
+export function reviewStatus(slot, row) {
+  const value = row?.reviewedValue ?? row?.value;
+  if (slot.required !== false && isEmptyValue(value)) return 'blocked';
+  if ((row?.warnings?.length ?? 0) > 0 && !row.reviewed && !row.reviewedValue) return 'review';
+  return 'ok';
+}
+
 /** Where a slot sits, in words, for its card. */
 export function describeLocation(loc, paragraphs = []) {
   switch (loc.kind) {

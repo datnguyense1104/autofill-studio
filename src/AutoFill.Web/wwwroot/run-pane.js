@@ -1,90 +1,135 @@
-// Right pane: drop sources (read in the background), pick or get a suggested recipe, start a run.
+// Right pane, as in the letter app: drop the sources, press "Xử lý"; the system reads them,
+// picks the recipe, fills it, and shows the result card on this page.
 import { followJob, progressText } from './jobs.js';
+import { renderRunCard } from './result-card.js';
+import { formatElapsed } from './slots.js';
 import { T } from './strings.js';
 import { $, api, formatDate, h, postJson, toast, uploadFile } from './ui.js';
 
-/** One entry per dropped file: {name, fileId?, state: 'uploading'|'reading'|'ready'|'failed', note} */
-const sources = [];
+let recipes = [];
+const state = { files: [], running: false };
 
-function renderSources() {
-  $('#source-list').replaceChildren(...sources.map((s, i) => h('li', {},
-    h('span', { className: 'name' }, s.name),
-    h('span', { className: `status ${s.state === 'ready' ? 'ok' : s.state === 'failed' ? 'blocked' : ''}` }, s.note),
-    h('button', { type: 'button', className: 'btn btn-ghost btn-small', 'aria-label': `Bỏ ${s.name}`, onclick: () => { sources.splice(i, 1); renderSources(); } }, '✕'))));
-  updateButtons();
+// ---------------------------------------------------------------- files
+
+function renderFiles() {
+  $('#source-list').replaceChildren(...state.files.map((f, i) => h('li', {},
+    h('span', { className: 'name' }, f.name),
+    state.running ? null : h('button', { type: 'button', className: 'btn btn-ghost btn-small', 'aria-label': `Bỏ ${f.name}`, onclick: () => { state.files.splice(i, 1); renderFiles(); } }, '✕'))));
+  $('#start').disabled = state.running || state.files.length === 0;
 }
 
-const readyIds = () => sources.filter((s) => s.state === 'ready').map((s) => s.fileId);
-
-function updateButtons() {
-  const ready = readyIds().length > 0;
-  const busy = sources.some((s) => s.state === 'uploading' || s.state === 'reading');
-  $('#suggest').disabled = !ready || busy;
-  $('#start-run').disabled = !ready || busy || !$('#recipe-pick').value;
-  $('#start-hint').hidden = !$('#start-run').disabled;
+function addFiles(list) {
+  for (const f of list) if (!state.files.some((x) => x.name === f.name && x.size === f.size)) state.files.push(f);
+  renderFiles();
 }
 
-async function addSource(file) {
-  const entry = { name: file.name, state: 'uploading', note: 'Đang tải lên…' };
-  sources.push(entry);
-  renderSources();
+// ---------------------------------------------------------------- progress steps
+
+/** One line of the progress list, with a running timer until done/fail. */
+function step(text) {
+  const started = Date.now();
+  const icon = h('span', { className: 'icon' }, '●');
+  const label = h('span', {}, text);
+  const timer = h('span', { className: 'timer' }, '0:00');
+  const li = h('li', { className: 'running' }, icon, label, timer);
+  $('#steps').append(li);
+  const tick = setInterval(() => { timer.textContent = formatElapsed((Date.now() - started) / 1000); }, 1000);
+  const end = (cls, mark, note) => {
+    clearInterval(tick);
+    li.className = cls;
+    icon.textContent = mark;
+    if (note) label.textContent = `${text} — ${note}`;
+  };
+  return {
+    update: (note) => { label.textContent = note ? `${text} — ${note}` : text; },
+    done: (note) => end('done', '✓', note),
+    fail: (note) => end('failed', '✖', note),
+  };
+}
+
+/** Uploads one file and reads it (cached by content on the server). @returns the file id */
+async function readSource(file, i, total) {
+  const s = step(`Đọc ${i + 1}/${total}: ${file.name}`);
   try {
     const { key, name } = await uploadFile(file);
     const { fileId, jobId } = await postJson('api/sources', { key, name });
-    Object.assign(entry, { fileId, state: 'reading', note: 'Đang đọc…' });
-    renderSources();
-    const job = await followJob(jobId, (j) => { entry.note = progressText(j); renderSources(); });
-    const r = job.result;
-    Object.assign(entry, { state: 'ready', note: T.sourceRead(r.pages, r.aiPages), notes: r.notes });
-    for (const n of r.notes ?? []) if (n.includes('ký tự')) toast(`${entry.name}: ${n}`);
+    const job = await followJob(jobId, (j) => s.update(j.status === 'running' ? progressText(j) : ''));
+    s.done(job.result.cached ? 'đã đọc trước đó' : T.sourceRead(job.result.pages, job.result.aiPages));
+    return fileId;
   } catch (err) {
-    Object.assign(entry, { state: 'failed', note: err.message });
-  }
-  renderSources();
-}
-
-function setupDrop() {
-  const zone = $('#source-drop');
-  $('#source-files').addEventListener('change', (e) => { for (const f of e.target.files) addSource(f); e.target.value = ''; });
-  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-  zone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    zone.classList.remove('dragover');
-    for (const f of e.dataTransfer.files) addSource(f);
-  });
-}
-
-async function suggest() {
-  const status = $('#suggest-status');
-  status.hidden = false;
-  status.textContent = 'Đang tìm công thức phù hợp…';
-  $('#suggestions').replaceChildren();
-  try {
-    const { jobId } = await postJson('api/recipes/suggest', { sourceFileIds: readyIds() });
-    const job = await followJob(jobId, (j) => { status.textContent = progressText(j); });
-    const list = job.result.suggestions;
-    status.textContent = list.length ? 'Bấm để chọn:' : 'Không có công thức nào phù hợp, hãy chọn tay hoặc tạo công thức mới.';
-    $('#suggestions').replaceChildren(...list.map((s) => h('li', { className: 'tpl-item' },
-      h('button', { type: 'button', className: 'tpl-row', onclick: () => { $('#recipe-pick').value = s.recipeId; updateButtons(); } },
-        h('span', { className: 'tpl-name' }, `${s.name} · ${Math.round(s.score * 100)}%`),
-        h('span', { className: 'muted small' }, s.reason)))));
-    if (list[0] && !$('#recipe-pick').value) { $('#recipe-pick').value = list[0].recipeId; updateButtons(); }
-  } catch (err) {
-    status.textContent = err.message;
+    s.fail(err.message);
+    throw err;
   }
 }
 
-async function startRun() {
-  $('#start-run').disabled = true;
+/** The recipe for these sources: the only one, the one in the link, or the AI's best match. */
+async function chooseRecipe(fileIds) {
+  const wanted = new URLSearchParams(location.search).get('recipe');
+  if (wanted && recipes.some((r) => r.id === wanted)) return { recipeId: wanted, reason: 'Chọn từ trang công thức' };
+  if (recipes.length === 1) return { recipeId: recipes[0].id, reason: 'Công thức duy nhất trong không gian làm việc' };
+  const s = step('Chọn công thức phù hợp');
   try {
-    const { runId } = await postJson('api/runs', { recipeId: $('#recipe-pick').value, sourceFileIds: readyIds() });
-    location.href = `run.html?id=${runId}`;
+    const { jobId } = await postJson('api/recipes/suggest', { sourceFileIds: fileIds });
+    const job = await followJob(jobId);
+    const best = job.result.suggestions[0];
+    s.done(best ? best.name : 'không có công thức phù hợp');
+    return best ? { recipeId: best.recipeId, reason: best.reason } : null;
+  } catch (err) {
+    s.fail(err.message);
+    throw err;
+  }
+}
+
+/** Starts a run, follows it, then shows (or replaces) its card. */
+async function fill(recipeId, fileIds, reason, cardEl) {
+  const name = recipes.find((r) => r.id === recipeId)?.name ?? '';
+  const s = step(`Điền mẫu: ${name}`);
+  const el = cardEl ?? h('article', { className: 'card loading' }, h('div', { className: 'card-head' }, h('h2', {}, name), h('p', { className: 'reason' }, 'Đang điền…')));
+  if (!cardEl) $('#results').append(el);
+  el.classList.add('loading');
+  try {
+    const { runId, jobId } = await postJson('api/runs', { recipeId, sourceFileIds: fileIds });
+    await followJob(jobId, (j) => s.update(j.status === 'running' ? progressText(j) : ''));
+    s.done();
+    await renderRunCard(el, runId, { reason, recipes, onRefill: (id) => fill(id, fileIds, 'Chọn thủ công', el) });
+    loadHistory().catch(() => {});
+  } catch (err) {
+    s.fail(err.message);
+    el.classList.remove('loading');
+    toast(err.message, true);
+  }
+}
+
+async function run() {
+  if (!recipes.length) { toast('Chưa có công thức nào: bấm "+ Thêm mẫu" ở cột bên trái trước', true); return; }
+  state.running = true;
+  renderFiles();
+  $('#steps').replaceChildren();
+  $('#results').replaceChildren();
+  $('#progress').hidden = false;
+  $('#no-match').hidden = true;
+  try {
+    const fileIds = [];
+    for (const [i, file] of state.files.entries()) fileIds.push(await readSource(file, i, state.files.length));
+    const choice = await chooseRecipe(fileIds);
+    if (!choice) {
+      $('#no-match-reason').textContent = 'AI không thấy công thức nào hợp với các tài liệu này. Hãy chọn tay, hoặc thêm mẫu mới ở cột bên trái.';
+      $('#manual-recipe').replaceChildren(...recipes.map((r) => h('option', { value: r.id }, r.name)));
+      $('#manual-fill').onclick = () => { $('#no-match').hidden = true; fill($('#manual-recipe').value, fileIds, 'Chọn thủ công'); };
+      $('#no-match').hidden = false;
+      return;
+    }
+    await fill(choice.recipeId, fileIds, choice.reason);
   } catch (err) {
     toast(err.message, true);
-    updateButtons();
+  } finally {
+    state.running = false;
+    renderFiles();
+    $('#reset').hidden = false;
   }
 }
+
+// ---------------------------------------------------------------- history
 
 async function loadHistory() {
   const runs = await api('api/runs?limit=20');
@@ -96,25 +141,30 @@ async function loadHistory() {
   $('#history-empty').hidden = runs.length > 0;
 }
 
-/** @param {object[]} recipes from the recipes pane */
-/** Rebuilds the recipe picker (a template just became a recipe), keeping the current choice. */
-export function refreshRecipePicker(recipes) {
-  const pick = $('#recipe-pick');
-  const current = pick.value;
-  pick.replaceChildren(h('option', { value: '' }, '— Chọn công thức —'), ...recipes.map((r) => h('option', { value: r.id }, r.name)));
-  if (recipes.some((r) => r.id === current)) pick.value = current;
-  updateButtons();
+// ---------------------------------------------------------------- setup
+
+/** Keeps the recipe list current (a template just became a recipe). */
+export function refreshRecipePicker(list) {
+  recipes = list;
 }
 
-export function setupRunPane(recipes) {
-  const pick = $('#recipe-pick');
-  refreshRecipePicker(recipes);
-  const wanted = new URLSearchParams(location.search).get('recipe');
-  if (wanted && recipes.some((r) => r.id === wanted)) pick.value = wanted;
-  pick.addEventListener('change', updateButtons);
-  $('#suggest').addEventListener('click', suggest);
-  $('#start-run').addEventListener('click', startRun);
-  setupDrop();
-  updateButtons();
+export function setupRunPane(list) {
+  recipes = list;
+  const zone = $('#source-drop');
+  $('#source-files').addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('dragover'); addFiles(e.dataTransfer.files); });
+  $('#start').addEventListener('click', run);
+  $('#reset').addEventListener('click', () => {
+    state.files = [];
+    renderFiles();
+    $('#results').replaceChildren();
+    $('#steps').replaceChildren();
+    $('#progress').hidden = true;
+    $('#no-match').hidden = true;
+    $('#reset').hidden = true;
+  });
+  renderFiles();
   loadHistory().catch((err) => toast(err.message, true));
 }
