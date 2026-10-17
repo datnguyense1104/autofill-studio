@@ -97,12 +97,21 @@ public static class Startup
         if (settings.BasePath.Length > 0)
         {
             app.UsePathBase(settings.BasePath);
-            // "/auto-fill" → "/auto-fill/": the pages use relative links, which need the trailing slash.
             app.Use(async (ctx, next) =>
             {
+                // "/auto-fill" → "/auto-fill/": the pages use relative links, which need the trailing slash.
                 if (ctx.Request.PathBase.HasValue && !ctx.Request.Path.HasValue)
                 {
                     ctx.Response.Redirect($"{ctx.Request.PathBase}/{ctx.Request.QueryString}");
+                    return;
+                }
+                // Outside the prefix the login cookie (scoped to the prefix) is never sent: send pages into it.
+                if (!ctx.Request.PathBase.HasValue)
+                {
+                    if (HttpMethods.IsGet(ctx.Request.Method) || HttpMethods.IsHead(ctx.Request.Method))
+                        ctx.Response.Redirect($"{settings.BasePath}{ctx.Request.Path}{ctx.Request.QueryString}");
+                    else
+                        ctx.Response.StatusCode = StatusCodes.Status404NotFound;
                     return;
                 }
                 await next();

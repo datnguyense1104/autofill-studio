@@ -26,6 +26,12 @@ public sealed class BasePathTests(PostgresServer pg) : IClassFixture<PostgresSer
         Assert.Equal(HttpStatusCode.Redirect, bare.StatusCode);
         Assert.Equal("/auto-fill/", bare.Headers.Location!.OriginalString);
 
+        // Outside the prefix (where the login cookie would never be sent): moved into it.
+        var outside = await client.GetAsync("/run.html?id=1");
+        Assert.Equal(HttpStatusCode.Redirect, outside.StatusCode);
+        Assert.Equal("/auto-fill/run.html?id=1", outside.Headers.Location!.OriginalString);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/api/auth/login", new { })).StatusCode);
+
         var page = await client.GetAsync("/auto-fill/");
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         Assert.Contains("AutoFill Studio", await page.Content.ReadAsStringAsync());
