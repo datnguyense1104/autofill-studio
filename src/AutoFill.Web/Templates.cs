@@ -3,14 +3,16 @@ using AutoFill.Core;
 using AutoFill.Data;
 using AutoFill.Documents.Ingest;
 using AutoFill.Documents.Templates;
+using Microsoft.EntityFrameworkCore;
 
 namespace AutoFill.Web;
 
 /// <param name="Key">an upload to take; or <paramref name="FileId"/>, a template already uploaded (to analyse again)</param>
 /// <param name="SkipAi">only prepare the template (convert .doc/.xls); the user marks the slots by hand</param>
 /// <param name="CreateRecipe">save the analysis as a new recipe straight away (named after the file): upload and done</param>
+/// <param name="AllowDuplicate">create the recipe even when an existing one has the same form (the user said so)</param>
 public sealed record TemplateBody(string? Key, string? Name, Guid[]? FilledFileIds, Guid[]? ExampleFileIds, string? Notes,
-    Guid? FileId = null, bool SkipAi = false, bool CreateRecipe = false);
+    Guid? FileId = null, bool SkipAi = false, bool CreateRecipe = false, bool AllowDuplicate = false);
 public sealed record FillBody(Slot[]? Slots, Dictionary<string, SlotValue>? Values, bool Highlight = true);
 
 /// <summary>
@@ -20,7 +22,7 @@ public sealed record FillBody(Slot[]? Slots, Dictionary<string, SlotValue>? Valu
 public sealed class TemplateAnalyzeJob(AppDbContext db, FileService files, SourceService sources, LegacyConverter legacy, TemplateAnalyzer analyzer) : IJobHandler
 {
     public const string JobType = "template.analyze";
-    public sealed record Payload(Guid FileId, Guid[] FilledFileIds, Guid[] ExampleFileIds, string? Notes, bool SkipAi = false, bool CreateRecipe = false);
+    public sealed record Payload(Guid FileId, Guid[] FilledFileIds, Guid[] ExampleFileIds, string? Notes, bool SkipAi = false, bool CreateRecipe = false, bool AllowDuplicate = false);
 
     public string Type => JobType;
 
@@ -32,6 +34,10 @@ public sealed class TemplateAnalyzeJob(AppDbContext db, FileService files, Sourc
         var kind = TemplateFiller.KindOf(Ext(template))!.Value;
         if (payload.SkipAi)
             return JsonSerializer.Serialize(new { templateFileId = template.Id, name = template.Name, analysis = new TemplateAnalysis(kind, []) }, SourceService.Json);
+
+        // Checked before the AI (minutes): the same form uploaded again, often a filled copy of it.
+        if (payload.CreateRecipe && !payload.AllowDuplicate && await SameFormAsync(template, kind, ct) is { } duplicate)
+            return JsonSerializer.Serialize(new { templateFileId = template.Id, name = template.Name, duplicate }, SourceService.Json);
 
         var filled = new List<byte[]>();
         foreach (var id in payload.FilledFileIds)
@@ -61,6 +67,26 @@ public sealed class TemplateAnalyzeJob(AppDbContext db, FileService files, Sourc
                 Rules: [], Notes: payload.Notes, UseWhen: analysis.UseWhen, CheckMissing: null), db, files, job.CreatedBy ?? Guid.Empty, ct);
         }
         return JsonSerializer.Serialize(new { templateFileId = template.Id, name = template.Name, analysis, recipeId }, SourceService.Json);
+    }
+
+    /// <summary>The recipe whose current template reads most like this one, when they are the same form.</summary>
+    async Task<object?> SameFormAsync(StoredFile template, TemplateKind kind, CancellationToken ct)
+    {
+        var kindName = kind.ToString().ToLowerInvariant();
+        var recipes = await db.Recipes.AsNoTracking().Where(r => r.DeletedAt == null)
+            .Join(db.RecipeVersions.AsNoTracking(), r => new { Id = r.Id, N = r.CurrentVersion }, v => new { Id = v.RecipeId, N = v.Number },
+                (r, v) => new { r.Id, r.Name, v.TemplateFileId, v.Kind })
+            .Where(x => x.Kind == kindName).ToListAsync(ct);
+        if (recipes.Count == 0) return null;
+        var text = TemplateSimilarity.TextOf(await files.ReadAsync(template, ct), kind);
+        (Guid Id, string Name, double Score)? best = null;
+        foreach (var r in recipes)
+        {
+            var score = r.TemplateFileId == template.Id ? 1
+                : TemplateSimilarity.Score(text, TemplateSimilarity.TextOf(await files.ReadAsync(await files.GetAsync(r.TemplateFileId, ct), ct), kind));
+            if (score >= TemplateSimilarity.SameForm && (best is null || score > best.Value.Score)) best = (r.Id, r.Name, score);
+        }
+        return best is { } b ? new { recipeId = b.Id, name = b.Name, similarity = Math.Round(b.Score, 2) } : null;
     }
 
     static string Ext(StoredFile f) => f.Key[(f.Key.LastIndexOf('.') + 1)..];
@@ -103,7 +129,7 @@ public static class TemplateEndpoints
             file ??= await files.TakeUploadAsync(body.Key ?? "", body.Name ?? "", ct);
             foreach (var id in (body.FilledFileIds ?? []).Concat(body.ExampleFileIds ?? [])) await files.GetAsync(id, ct);
             var job = await queue.EnqueueAsync(TemplateAnalyzeJob.JobType,
-                new TemplateAnalyzeJob.Payload(file.Id, body.FilledFileIds ?? [], body.ExampleFileIds ?? [], body.Notes, body.SkipAi, body.CreateRecipe && !body.SkipAi), CurrentUser.From(ctx).Id, ct);
+                new TemplateAnalyzeJob.Payload(file.Id, body.FilledFileIds ?? [], body.ExampleFileIds ?? [], body.Notes, body.SkipAi, body.CreateRecipe && !body.SkipAi, body.AllowDuplicate), CurrentUser.From(ctx).Id, ct);
             return Results.Ok(new { fileId = file.Id, jobId = job.Id });
         });
 

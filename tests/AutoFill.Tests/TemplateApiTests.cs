@@ -84,6 +84,56 @@ public sealed class TemplateApiTests(PostgresServer pg) : IClassFixture<Postgres
         Assert.Equal("Họ tên", recipe["version"]!["slots"]![0]!["label"]!.GetValue<string>());
     }
 
+    static byte[] Invitation(string when) => WordFixtures.Docx(
+        WordFixtures.P("GIẤY MỜI"),
+        WordFixtures.P("Kính mời ông Nguyễn Văn A đến Sở."),
+        WordFixtures.P($"Thời gian: {when}, tại phòng họp số 2, số 6 Alexandre de Rhodes, Quận 1."),
+        WordFixtures.P("Đề nghị ông mang theo hộ chiếu và các giấy tờ liên quan khi đến làm việc."));
+
+    async Task<JsonObject> AnalyseAsync(HttpClient client, object body)
+    {
+        var started = await (await client.PostAsJsonAsync("/api/templates", body)).Content.ReadFromJsonAsync<JsonObject>();
+        Assert.True(await app.Services.GetRequiredService<JobWorker>().RunOneAsync(CancellationToken.None));
+        var job = await client.GetFromJsonAsync<JsonObject>($"/api/jobs/{started!["jobId"]}");
+        Assert.Equal("done", job!["status"]!.GetValue<string>());
+        return job["result"]!.AsObject();
+    }
+
+    [Fact]
+    public async Task A_template_of_a_form_already_saved_is_flagged_before_the_ai_and_added_only_when_asked()
+    {
+        var client = await app.SignedInAsync("a@example.com");
+        var first = await AnalyseAsync(client, new { key = await UploadAsync(client, Invitation("8 giờ ngày 20/10/2026"), "Giấy mời.docx"), name = "Giấy mời.docx", createRecipe = true });
+        var calls = ai.Requests.Count;
+
+        // A filled copy of the same form (another date): not analysed, the existing recipe is named.
+        var copy = await AnalyseAsync(client, new { key = await UploadAsync(client, Invitation("9 giờ ngày 25/11/2026"), "Giấy mời - 2026-11-25.docx"), name = "Giấy mời - 2026-11-25.docx", createRecipe = true });
+        Assert.Equal(first["recipeId"]!.GetValue<Guid>(), copy["duplicate"]!["recipeId"]!.GetValue<Guid>());
+        Assert.Equal("Giấy mời", copy["duplicate"]!["name"]!.GetValue<string>());
+        Assert.InRange(copy["duplicate"]!["similarity"]!.GetValue<double>(), 0.6, 1);
+        Assert.Null(copy["recipeId"]);
+        Assert.Equal(calls, ai.Requests.Count);
+        Assert.Single(await client.GetFromJsonAsync<JsonArray>("/api/recipes") ?? []);
+
+        // "Vẫn thêm": the same uploaded file, analysed and saved as a second recipe.
+        var forced = await AnalyseAsync(client, new { fileId = copy["templateFileId"], createRecipe = true, allowDuplicate = true });
+        Assert.NotNull(forced["recipeId"]);
+        Assert.Equal(2, (await client.GetFromJsonAsync<JsonArray>("/api/recipes"))!.Count);
+    }
+
+    [Fact]
+    public void Copies_of_one_form_score_high_and_different_forms_with_the_same_letterhead_score_low()
+    {
+        const string head = "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\nSỞ NGOẠI VỤ THÀNH PHỐ HỒ CHÍ MINH\n";
+        var invite = head + "GIẤY MỜI\nKính mời ông Nguyễn Văn A đến Sở vào 8 giờ ngày 20/10/2026 để trao đổi về hồ sơ xin cấp thị thực.";
+        var inviteCopy = head + "GIẤY MỜI\nKính mời bà Trần Thị B đến Sở vào 9 giờ ngày 25/11/2026 để trao đổi về hồ sơ xin cấp thị thực.";
+        var note = head + "CÔNG HÀM\nSở Ngoại vụ trân trọng thông báo Tổng Lãnh sự quán về việc công dân bị tạm giữ và đề nghị phối hợp.";
+
+        Assert.InRange(Documents.Templates.TemplateSimilarity.Score(invite, inviteCopy), 0.6, 1);
+        Assert.InRange(Documents.Templates.TemplateSimilarity.Score(invite, note), 0, 0.5);
+        Assert.Equal(1, Documents.Templates.TemplateSimilarity.Score(invite, invite.ToUpperInvariant()));
+    }
+
     [Fact]
     public async Task Only_word_and_excel_files_can_be_templates()
     {

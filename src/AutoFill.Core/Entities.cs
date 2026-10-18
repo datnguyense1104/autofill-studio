@@ -101,6 +101,11 @@ public sealed class Recipe : IWorkspaceOwned
     /// <summary>"Dùng khi nào": what sources this recipe answers (used to suggest a recipe for new sources).</summary>
     public string UseWhen { get; set; } = "";
     public int CurrentVersion { get; set; }
+    /// <summary>
+    /// Set when the user deletes the recipe: it leaves the list, suggestions and new runs, but its
+    /// versions stay so past runs still open.
+    /// </summary>
+    public DateTimeOffset? DeletedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

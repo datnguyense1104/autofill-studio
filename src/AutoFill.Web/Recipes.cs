@@ -75,12 +75,12 @@ public static class RecipeEndpoints
         var recipes = app.MapGroup("/api/recipes").RequireAuthorization();
 
         recipes.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
-            Results.Ok(await db.Recipes.AsNoTracking().OrderByDescending(r => r.UpdatedAt)
+            Results.Ok(await db.Recipes.AsNoTracking().Where(r => r.DeletedAt == null).OrderByDescending(r => r.UpdatedAt)
                 .Select(r => new { r.Id, r.Name, r.UseWhen, r.CurrentVersion, r.UpdatedAt }).ToListAsync(ct)));
 
         recipes.MapGet("/{id:guid}", async (Guid id, AppDbContext db, CancellationToken ct) =>
         {
-            var recipe = await db.Recipes.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct) ?? throw new UserFacingException("Không tìm thấy công thức", 404);
+            var recipe = await db.Recipes.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id && r.DeletedAt == null, ct) ?? throw new UserFacingException("Không tìm thấy công thức", 404);
             var version = await db.RecipeVersions.AsNoTracking().FirstAsync(v => v.RecipeId == id && v.Number == recipe.CurrentVersion, ct);
             var template = await db.Files.AsNoTracking().FirstAsync(f => f.Id == version.TemplateFileId, ct);
             return Results.Json(new { recipe.Id, recipe.Name, recipe.UseWhen, version = VersionView(version, template) }, SourceService.Json);
@@ -96,7 +96,7 @@ public static class RecipeEndpoints
         // Saving a change makes a new version; runs keep the version they used.
         recipes.MapPost("/{id:guid}/versions", async (Guid id, RecipeBody body, HttpContext ctx, AppDbContext db, FileService files, CancellationToken ct) =>
         {
-            var recipe = await db.Recipes.FirstOrDefaultAsync(r => r.Id == id, ct) ?? throw new UserFacingException("Không tìm thấy công thức", 404);
+            var recipe = await db.Recipes.FirstOrDefaultAsync(r => r.Id == id && r.DeletedAt == null, ct) ?? throw new UserFacingException("Không tìm thấy công thức", 404);
             var me = CurrentUser.From(ctx);
             me.RequireEditor();
             var version = await NewVersionAsync(body, files, me.Id, ct);
@@ -109,6 +109,16 @@ public static class RecipeEndpoints
             db.RecipeVersions.Add(version);
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { id, version = version.Number });
+        });
+
+        // Deleted recipes leave the list and new runs; past runs keep their version and still open.
+        recipes.MapDelete("/{id:guid}", async (Guid id, HttpContext ctx, AppDbContext db, CancellationToken ct) =>
+        {
+            CurrentUser.From(ctx).RequireEditor();
+            var recipe = await db.Recipes.FirstOrDefaultAsync(r => r.Id == id && r.DeletedAt == null, ct) ?? throw new UserFacingException("Không tìm thấy công thức", 404);
+            recipe.DeletedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
         });
 
         recipes.MapPost("/suggest", async (SuggestBody body, HttpContext ctx, FileService files, JobQueue queue, CancellationToken ct) =>
@@ -134,7 +144,7 @@ public sealed class RecipeSuggestJob(AppDbContext db, RunService runs, RecipeSug
     {
         var payload = JsonSerializer.Deserialize<Payload>(job.Payload, SourceService.Json) ?? throw new InvalidOperationException("Empty payload");
         var read = await runs.ReadSourcesAsync(payload.SourceFileIds, progress, ct);
-        var cards = await db.Recipes.AsNoTracking().Select(r => new RecipeCard(r.Id, r.Name, r.UseWhen)).ToListAsync(ct);
+        var cards = await db.Recipes.AsNoTracking().Where(r => r.DeletedAt == null).Select(r => new RecipeCard(r.Id, r.Name, r.UseWhen)).ToListAsync(ct);
         await progress.ReportAsync("AI chọn công thức");
         return JsonSerializer.Serialize(new { suggestions = await suggester.SuggestAsync(read, cards, ct) }, SourceService.Json);
     }

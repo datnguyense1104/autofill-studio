@@ -145,7 +145,7 @@ public static class RunEndpoints
 
         runs.MapPost("/", async (RunBody body, HttpContext ctx, AppDbContext db, FileService files, JobQueue queue, CancellationToken ct) =>
         {
-            var recipe = await db.Recipes.AsNoTracking().FirstOrDefaultAsync(r => r.Id == body.RecipeId, ct) ?? throw new UserFacingException("Không tìm thấy công thức", 404);
+            var recipe = await db.Recipes.AsNoTracking().FirstOrDefaultAsync(r => r.Id == body.RecipeId && r.DeletedAt == null, ct) ?? throw new UserFacingException("Không tìm thấy công thức", 404);
             var version = await db.RecipeVersions.AsNoTracking().FirstAsync(v => v.RecipeId == recipe.Id && v.Number == recipe.CurrentVersion, ct);
             var ids = body.SourceFileIds ?? [];
             if (ids.Length == 0) throw new UserFacingException("Hãy chọn tài liệu nguồn");

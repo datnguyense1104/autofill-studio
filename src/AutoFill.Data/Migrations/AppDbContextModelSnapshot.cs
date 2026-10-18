@@ -199,6 +199,10 @@ namespace AutoFill.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("current_version");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)

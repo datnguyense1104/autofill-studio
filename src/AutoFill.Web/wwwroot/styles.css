@@ -93,6 +93,10 @@ h1 { font-size: 1.5rem; }
 .file-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
 .file-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; background: var(--bg); border-radius: 8px; }
 .file-list .name { overflow-wrap: anywhere; }
+/* Templates being added: the note can be a sentence with buttons (same form as an existing recipe). */
+#template-pending li { flex-wrap: wrap; }
+#template-pending .status { white-space: normal; }
+#template-pending .actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
 
 .steps { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 8px; }
 .steps li { display: flex; gap: 10px; align-items: baseline; }
@@ -242,7 +246,11 @@ textarea.grow { resize: none; overflow: hidden; min-height: 44px; line-height: 1
 .pane-head .panel-title { margin: 0; font-size: 1.0625rem; }
 .tpl-search { width: 100%; margin-bottom: 12px; font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; }
 .tpl-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
-.tpl-item { border: 1px solid var(--line); border-radius: 8px; }
+.tpl-item { position: relative; border: 1px solid var(--line); border-radius: 8px; }
+.tpl-item .tpl-row { padding-right: 40px; }
+.tpl-delete { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border: 0; border-radius: 6px; background: none; color: var(--muted); font: inherit; cursor: pointer; }
+.tpl-delete:hover, .tpl-delete:focus-visible { background: #fee2e2; color: var(--blocked); }
+#new-recipe { white-space: nowrap; flex-shrink: 0; }
 .tpl-item:hover { border-color: var(--primary); }
 .tpl-row { display: grid; gap: 4px; width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; padding: 10px 12px; cursor: pointer; border-radius: 8px; }
 .tpl-row:hover { background: var(--primary-soft); }

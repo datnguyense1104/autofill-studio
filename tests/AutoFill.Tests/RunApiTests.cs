@@ -136,6 +136,26 @@ public sealed class RunApiTests(PostgresServer pg) : IClassFixture<PostgresServe
     }
 
     [Fact]
+    public async Task A_deleted_recipe_leaves_the_list_and_new_runs_but_its_past_runs_still_open()
+    {
+        var a = await app.SignedInAsync("a@example.com");
+        var recipeId = await RunAllJobsAndGetRecipeAsync(a, WordFixtures.Docx(WordFixtures.P("Kính mời Nguyễn Văn A")), "moi.docx", WordSlots());
+        var source = await SourceAsync(a, SourceFixtures.Pdf("Invitation for Typed Person on Monday"), "thu.pdf");
+        var runId = (await (await a.PostAsJsonAsync("/api/runs", new { recipeId, sourceFileIds = new[] { source } })).Content.ReadFromJsonAsync<JsonObject>())!["runId"];
+        while (await Worker.RunOneAsync(CancellationToken.None)) { }
+
+        Assert.Equal(HttpStatusCode.NoContent, (await a.DeleteAsync($"/api/recipes/{recipeId}")).StatusCode);
+
+        Assert.Empty((await a.GetFromJsonAsync<JsonArray>("/api/recipes"))!);
+        Assert.Equal(HttpStatusCode.NotFound, (await a.GetAsync($"/api/recipes/{recipeId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await a.PostAsJsonAsync("/api/runs", new { recipeId, sourceFileIds = new[] { source } })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await a.DeleteAsync($"/api/recipes/{recipeId}")).StatusCode);
+        var past = await a.GetFromJsonAsync<JsonObject>($"/api/runs/{runId}");
+        Assert.Equal("Typed Person", past!["values"]![0]!["value"]!["text"]!.GetValue<string>());
+        Assert.Single((await a.GetFromJsonAsync<JsonArray>("/api/runs"))!);
+    }
+
+    [Fact]
     public async Task Reviewers_cannot_change_recipes()
     {
         var owner = await app.SignedInAsync("a@example.com");
