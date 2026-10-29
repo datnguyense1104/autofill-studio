@@ -133,6 +133,19 @@ public sealed class RunApiTests(PostgresServer pg) : IClassFixture<PostgresServe
         var revised = await (await a.PostAsJsonAsync($"/api/runs/{runId}/values/name/revise", new { instruction = "Viết thường" })).Content.ReadFromJsonAsync<JsonObject>();
         Assert.Equal("Typed Person", revised!["value"]!["text"]!.GetValue<string>());
         Assert.Null(revised["reviewedValue"]);
+
+        // The AI found nothing: "Bỏ qua" lets the file go out with that place left empty.
+        await using (var scope = await app.WorkspaceScopeAsync("a@example.com"))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Data.AppDbContext>();
+            db.RunValues.Single(v => v.RunId == runId).Value = """{"text":""}""";
+            await db.SaveChangesAsync();
+        }
+        Assert.Equal(HttpStatusCode.BadRequest, (await a.GetAsync($"/api/runs/{runId}/export")).StatusCode);
+        (await a.PutAsJsonAsync($"/api/runs/{runId}/values/name", new { value = (object?)null, reviewed = true })).EnsureSuccessStatusCode();
+        var skipped = await a.GetAsync($"/api/runs/{runId}/export");
+        Assert.Equal(HttpStatusCode.OK, skipped.StatusCode);
+        Assert.Equal("Kính mời ", WordFixtures.Texts(await skipped.Content.ReadAsByteArrayAsync()).Single());
     }
 
     [Fact]

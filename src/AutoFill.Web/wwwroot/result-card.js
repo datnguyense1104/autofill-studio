@@ -1,7 +1,7 @@
 // One result card per run, as in the letter app: what was filled, only the places that need a
 // look (each inside its sentence), and the download at the bottom. Used by the main page right
 // after "Xử lý" and by run.html for a run from the history.
-import { contextOf, reviewStatus } from './slots.js';
+import { contextOf, isSkipped, reviewStatus } from './slots.js';
 import { T } from './strings.js';
 import { api, autoGrow, download, h, postJson, putJson, toast } from './ui.js';
 
@@ -98,12 +98,13 @@ function item(card, slot) {
   const row = card.rows.get(slot.id);
   const status = reviewStatus(slot, row);
   const raised = (row?.warnings?.length ?? 0) > 0;
-  const resolved = status === 'ok' && Boolean(raised || row?.reviewedValue);
+  const skipped = slot.required !== false && isSkipped(row);
+  const resolved = status === 'ok' && Boolean(raised || row?.reviewedValue || skipped);
   const cls = status !== 'ok' ? status : resolved ? 'review resolved' : 'ok';
   return h('div', { className: `item ${cls}` },
     h('div', { className: 'item-head' },
       h('span', { className: 'item-label' }, slot.label, slot.locations.length > 1 ? h('span', { className: 'muted' }, ` · dùng ở ${slot.locations.length} chỗ`) : null),
-      h('span', { className: `status ${status}` }, resolved ? '✓ Đã xem' : STATUS_TEXT[status])),
+      h('span', { className: `status ${status}` }, skipped ? '✓ Đã bỏ qua (để trống)' : resolved ? '✓ Đã xem' : STATUS_TEXT[status])),
     contextNode(card, slot),
     editor(card, slot),
     raised ? h('ul', { className: 'reasons' }, ...row.warnings.map((w) => h('li', {}, w))) : null,
@@ -111,6 +112,8 @@ function item(card, slot) {
     slot.sampleValue ? h('p', { className: 'meta' }, 'Trong mẫu cũ: ', slot.sampleValue.length > 200 ? `${slot.sampleValue.slice(0, 200)}…` : slot.sampleValue) : null,
     h('div', { className: 'item-actions' },
       status === 'review' ? h('button', { type: 'button', className: 'btn btn-ghost btn-small', onclick: () => save(card, slot, row?.reviewedValue ?? null, true) }, 'Đúng rồi') : null,
+      status === 'blocked' ? h('button', { type: 'button', className: 'btn btn-ghost btn-small', title: 'Để trống chỗ này trong file tải về', onclick: () => save(card, slot, null, true) }, 'Bỏ qua') : null,
+      skipped ? h('button', { type: 'button', className: 'btn btn-ghost btn-small', onclick: () => save(card, slot, null, false) }, 'Hoàn tác') : null,
       h('button', { type: 'button', className: 'btn btn-ghost btn-small', onclick: () => { const ask = prompt(T.reviseAsk); if (ask?.trim()) revise(card, slot, ask.trim()); } }, 'AI viết lại'),
       row?.reviewedValue ? h('button', { type: 'button', className: 'btn btn-ghost btn-small', onclick: () => save(card, slot, null, false) }, 'Dùng lại giá trị AI') : null));
 }

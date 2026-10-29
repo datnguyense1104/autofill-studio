@@ -18,6 +18,10 @@ test('the review shows each value inside its sentence, and sorts slots like the 
   assert.equal(reviewStatus(slot, { value: { text: 'x' }, warnings: ['Số lạ'], reviewed: true }), 'ok');
   assert.equal(reviewStatus(slot, { value: { text: '' }, reviewedValue: { text: 'sửa' }, warnings: ['Thiếu'] }), 'ok');
   assert.equal(reviewStatus({ id: 'o', required: false }, { value: { text: '' }, warnings: [] }), 'ok');
+
+  // "Bỏ qua" leaves a required place empty on purpose; a value typed and then cleared still blocks.
+  assert.equal(reviewStatus(slot, { value: { text: '' }, reviewed: true, warnings: ['Không tìm thấy'] }), 'ok');
+  assert.equal(reviewStatus(slot, { value: { text: '' }, reviewedValue: { text: ' ' }, reviewed: true, warnings: [] }), 'blocked');
 });
 
 const phrase = (id, paragraph, start, length, wholeParagraph = false) => ({ id, label: id, locations: [{ kind: 'phrase', paragraph, start, length, wholeParagraph }] });

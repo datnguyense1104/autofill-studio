@@ -135,9 +135,14 @@ export function contextOf(paragraphs, slots, values, slotId) {
  * Review status of a slot, as in the letter app: "blocked" (required and still empty: must be
  * fixed), "review" (the checks raised something and nobody looked yet), or "ok".
  */
+/** The reviewer chose "Bỏ qua": the place is left empty on purpose (reviewed, no value of their own, nothing filled). */
+export function isSkipped(row) {
+  return Boolean(row?.reviewed && !row.reviewedValue && isEmptyValue(row.value));
+}
+
 export function reviewStatus(slot, row) {
   const value = row?.reviewedValue ?? row?.value;
-  if (slot.required !== false && isEmptyValue(value)) return 'blocked';
+  if (slot.required !== false && isEmptyValue(value) && !isSkipped(row)) return 'blocked';
   if ((row?.warnings?.length ?? 0) > 0 && !row.reviewed && !row.reviewedValue) return 'review';
   return 'ok';
 }

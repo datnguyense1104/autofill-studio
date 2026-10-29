@@ -82,6 +82,9 @@ public sealed class RunService(AppDbContext db, FileService files, SourceService
     public static SlotValue Final(RunValue v) =>
         JsonSerializer.Deserialize<SlotValue>(v.ReviewedValue ?? v.Value, SourceService.Json) ?? new SlotValue("");
 
+    /// <summary>"Bỏ qua": the reviewer left an empty place empty on purpose (reviewed, no value of their own).</summary>
+    public static bool IsSkipped(RunValue v) => v.Reviewed && v.ReviewedValue is null && IsEmpty(Final(v));
+
     public static bool IsEmpty(SlotValue v) => v.Rows is { } rows ? rows.Values.All(string.IsNullOrWhiteSpace) : string.IsNullOrWhiteSpace(v.Text);
 }
 
@@ -239,7 +242,8 @@ public static class RunEndpoints
             var slots = RecipeEndpoints.SlotsOf(version);
             var rows = await db.RunValues.AsNoTracking().Where(v => v.RunId == id).ToDictionaryAsync(v => v.SlotId, ct);
             var values = slots.ToDictionary(s => s.Id, s => rows.TryGetValue(s.Id, out var v) ? RunService.Final(v) : new SlotValue(""));
-            var blocking = slots.Where(s => s.Required && RunService.IsEmpty(values[s.Id])).Select(s => s.Label).ToList();
+            var blocking = slots.Where(s => s.Required && RunService.IsEmpty(values[s.Id]) && !(rows.TryGetValue(s.Id, out var v) && RunService.IsSkipped(v)))
+                .Select(s => s.Label).ToList();
             if (blocking.Count > 0) throw new UserFacingException($"Còn ô bắt buộc chưa có giá trị: {string.Join(", ", blocking.Take(5))}{(blocking.Count > 5 ? "…" : "")}");
 
             var template = await files.GetAsync(version.TemplateFileId, ct);
