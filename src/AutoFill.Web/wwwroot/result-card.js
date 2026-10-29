@@ -123,7 +123,7 @@ function missingNotice(card) {
   if (!items.length) return null;
   const targets = card.run.slots.filter((s) => s.locations.every((l) => l.kind !== 'rows') && ['extract', 'generate'].includes(s.strategy));
   return h('div', { className: 'notice' },
-    h('p', {}, h('strong', {}, 'Có thể còn thiếu: '), 'thông tin quan trọng trong tài liệu nguồn chưa có trong văn bản.'),
+    h('p', {}, h('strong', {}, 'Có thể còn thiếu: '), 'AI thấy các thông tin dưới đây có trong tài liệu nguồn nhưng chưa có trong văn bản. Cần thì bấm "Thêm vào văn bản", không thì bấm "Không cần".'),
     h('ul', {}, ...items.map((m) => {
       const pick = h('select', { 'aria-label': T.missingAsk }, ...targets.map((s) => h('option', { value: s.id }, s.label)));
       const decide = async (decision) => {
@@ -131,15 +131,20 @@ function missingNotice(card) {
         card.run.missing[m.i].decision = decision;
         draw(card);
       };
-      return h('li', {},
-        m.item, h('span', { className: 'muted' }, ` — “${m.quote}”`),
-        h('div', { className: 'item-actions' },
-          targets.length ? pick : null,
-          targets.length ? h('button', { type: 'button', className: 'btn btn-ghost btn-small', onclick: async () => {
-            const slot = card.run.slots.find((s) => s.id === pick.value);
-            if (await revise(card, slot, `Bổ sung thông tin còn thiếu: ${m.item} (nguồn ghi: «${m.quote}»)`)) await decide('added');
-          } }, 'Bổ sung') : null,
-          h('button', { type: 'button', className: 'btn btn-ghost btn-small', onclick: () => decide('ignored') }, 'Không cần')));
+      if (m.slot && targets.some((s) => s.id === m.slot)) pick.value = m.slot;
+      const add = async () => {
+        const slot = card.run.slots.find((s) => s.id === pick.value);
+        if (await revise(card, slot, `Bổ sung thông tin còn thiếu: ${m.item} (nguồn ghi: «${m.quote}»)`)) await decide('added');
+      };
+      // Asked only after "Thêm vào văn bản": which place in the document takes it (the AI's pick first).
+      const choose = h('div', { className: 'item-actions', hidden: true },
+        h('label', {}, 'Thêm vào chỗ: ', pick),
+        h('button', { type: 'button', className: 'btn btn-primary btn-small', onclick: add }, 'Thêm'),
+        h('button', { type: 'button', className: 'btn btn-ghost btn-small', onclick: () => { choose.hidden = true; first.hidden = false; } }, 'Huỷ'));
+      const first = h('div', { className: 'item-actions' },
+        targets.length ? h('button', { type: 'button', className: 'btn btn-ghost btn-small', onclick: () => { first.hidden = true; choose.hidden = false; pick.focus(); } }, 'Thêm vào văn bản') : null,
+        h('button', { type: 'button', className: 'btn btn-ghost btn-small', onclick: () => decide('ignored') }, 'Không cần'));
+      return h('li', {}, m.item, h('span', { className: 'muted' }, ` — “${m.quote}”`), first, choose);
     })));
 }
 

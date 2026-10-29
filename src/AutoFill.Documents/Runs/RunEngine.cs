@@ -16,17 +16,19 @@ public sealed class RunEngine(IAiClient ai, RunOptions options)
     const string MissingInstructions = """
         Bạn kiểm tra một văn bản vừa được điền từ bộ tài liệu nguồn.
         Liệt kê các thông tin QUAN TRỌNG trong nguồn mà các giá trị đã điền chưa có: tên người, số giấy tờ, ngày, địa điểm, số tiền, yêu cầu, thời hạn, điều kiện...
-        Không liệt kê thông tin đã có (kể cả khi viết khác đi), thông tin chung chung, hay chữ của mẫu.
-        Mỗi mục: item = thông tin còn thiếu (ngắn gọn), doc và page = vị trí trong nguồn, quote = trích nguyên văn ngắn.
+        Không liệt kê: thông tin đã có (kể cả khi viết khác đi); thông tin chung chung hay chữ của mẫu; thông tin về chính cơ quan soạn văn bản này hoặc cơ quan nhận tài liệu nguồn (tên, địa chỉ, phòng ban); chi tiết phụ mà loại văn bản này thường không ghi (ví dụ giới tính khi đã có họ tên, ngày của văn bản nguồn khi đã dẫn số văn bản).
+        Chỉ liệt kê điều người soạn thật sự nên cân nhắc đưa vào; thà ít mà đúng.
+        Mỗi mục: item = thông tin còn thiếu (ngắn gọn), doc và page = vị trí trong nguồn, quote = trích nguyên văn ngắn, slot = mã ô hợp nhất để bổ sung thông tin đó (rỗng nếu không ô nào hợp).
         Không thiếu gì thì trả về danh sách rỗng.
         """;
 
     sealed record MissingReply(List<MissingAnswer> Items);
-    sealed record MissingAnswer(string Item, int Doc, int Page, string Quote);
+    sealed record MissingAnswer(string Item, int Doc, int Page, string Quote, string? Slot);
 
     /// <param name="onProgress">(step, done, total) for the job's progress line</param>
     public async Task<RunResult> RunAsync(RunInput input, Func<string, int, int, Task>? onProgress = null, CancellationToken ct = default)
     {
+        input = input with { Slots = [.. input.Slots.Select(RuleStrategies.Runnable)] };
         var results = new Dictionary<string, SlotResult>();
         var notes = new List<string>();
         var filler = new AiFiller(ai, options);
@@ -108,9 +110,11 @@ public sealed class RunEngine(IAiClient ai, RunOptions options)
     async Task<IReadOnlyList<MissingItem>> MissingAsync(RunInput input, Dictionary<string, SlotResult> results, string sources, Verifier verifier, CancellationToken ct)
     {
         var prompt = new StringBuilder(sources).Append("\n# Các giá trị đã điền\n");
-        foreach (var slot in input.Slots.Where(s => !s.Locations.Any(l => l is RowsLocation)))
-            prompt.Append($"- {slot.Label}: {results[slot.Id].Value.Text}\n");
-        var schema = Obj(("items", Arr(Obj(("item", Str()), ("doc", Int()), ("page", Int()), ("quote", Str())))));
+        var plain = input.Slots.Where(s => !s.Locations.Any(l => l is RowsLocation)).ToList();
+        foreach (var slot in plain)
+            prompt.Append($"- {slot.Id} | {slot.Label}: {results[slot.Id].Value.Text}\n");
+        var schema = Obj(("items", Arr(Obj(("item", Str()), ("doc", Int()), ("page", Int()), ("quote", Str()),
+            ("slot", Enum([.. plain.Select(s => s.Id), ""]))))));
         var node = await ai.GenerateJsonAsync(new AiRequest("run-missing", MissingInstructions, prompt.ToString(), "missing_info", schema), ct);
         var reply = node.Deserialize<MissingReply>(new JsonSerializerOptions(JsonSerializerDefaults.Web));
         // Only items whose quote is really in the sources: an invented "missing" item is noise.
@@ -118,7 +122,7 @@ public sealed class RunEngine(IAiClient ai, RunOptions options)
         return (reply?.Items ?? [])
             .Select(i => (i, e: verifier.Check(probe, new SlotResult(new SlotValue(""), ValueOrigin.None) { Evidence = [new Evidence(i.Doc - 1, i.Page, i.Quote, false)] }).Evidence[0]))
             .Where(x => x.e.Found && x.i.Item.Trim().Length > 0)
-            .Select(x => new MissingItem(x.i.Item.Trim(), x.e.Source, x.e.Page, x.e.Quote))
+            .Select(x => new MissingItem(x.i.Item.Trim(), x.e.Source, x.e.Page, x.e.Quote, plain.Any(s => s.Id == x.i.Slot) ? x.i.Slot : null))
             .ToList();
     }
 }

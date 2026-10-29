@@ -23,6 +23,21 @@ public static partial class RuleStrategies
     /// <summary>A setting as text (numbers typed in the builder come back as text too).</summary>
     public static string? Config(Slot slot, string name) => slot.StrategyConfig?[name]?.ToString() is { Length: > 0 } v ? v : null;
 
+    /// <summary>
+    /// A rule slot nobody configured (the template analysis may pick "lookup" or "formula" but sets
+    /// no table or expression) is read from the sources by the AI instead; a constant without a
+    /// value keeps the template's own text.
+    /// </summary>
+    public static Slot Runnable(Slot slot) => slot.Strategy switch
+    {
+        SlotStrategy.Lookup when Config(slot, "keyColumn") is null || Config(slot, "valueColumn") is null => slot with { Strategy = SlotStrategy.Extract },
+        SlotStrategy.Formula when Config(slot, "expression") is null => slot with { Strategy = SlotStrategy.Extract },
+        SlotStrategy.Constant when Config(slot, "value") is null => slot.SampleValue is { Length: > 0 } sample
+            ? slot with { StrategyConfig = new JsonObject { ["value"] = sample } }
+            : slot with { Strategy = SlotStrategy.Extract },
+        _ => slot,
+    };
+
     /// <summary>{"value": "..."}; for a rows slot every row gets the same value.</summary>
     public static SlotResult Constant(Slot slot, IReadOnlyDictionary<int, string>? rowLabels)
     {

@@ -40,7 +40,8 @@ public sealed record SlotResult(SlotValue Value, ValueOrigin Origin)
 }
 
 /// <summary>Something important in the sources that no slot carries (asked of the AI after filling).</summary>
-public sealed record MissingItem(string Item, int Source, int Page, string Quote);
+/// <param name="Slot">the slot the AI would add it to, if any fits</param>
+public sealed record MissingItem(string Item, int Source, int Page, string Quote, string? Slot = null);
 
 public sealed record RunResult(IReadOnlyDictionary<string, SlotResult> Values, IReadOnlyList<MissingItem> Missing)
 {

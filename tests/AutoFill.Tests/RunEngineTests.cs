@@ -73,6 +73,26 @@ public sealed class RunEngineTests
     }
 
     [Fact]
+    public async Task Rule_slots_nobody_configured_are_read_by_the_ai_and_a_bare_constant_keeps_the_template_text()
+    {
+        var ai = new FakeAi(r => Reply([.. AskedIds(r).Select(id => Value(id, $"từ nguồn {id}", "Kính mời"))]));
+        Slot[] slots =
+        [
+            S("basis", SlotStrategy.Lookup),
+            S("total", SlotStrategy.Formula),
+            S("office", SlotStrategy.Constant) with { SampleValue = "Phòng Lãnh sự" },
+            S("blank", SlotStrategy.Constant),
+        ];
+
+        var result = await new RunEngine(ai, new RunOptions()).RunAsync(Input(slots));
+
+        Assert.Equal(["basis", "blank", "total"], ai.Requests.SelectMany(AskedIds).Order());
+        Assert.Equal("từ nguồn basis", result.Values["basis"].Value.Text);
+        Assert.DoesNotContain(result.Values["basis"].Warnings, w => w.Contains("cấu hình"));
+        Assert.Equal("Phòng Lãnh sự", result.Values["office"].Value.Text);
+    }
+
+    [Fact]
     public async Task Slots_go_in_batches_by_group_and_row_rules_by_chunks_with_all_their_columns()
     {
         var running = 0;
@@ -178,14 +198,15 @@ public sealed class RunEngineTests
             ? new JsonObject
             {
                 ["items"] = new JsonArray(
-                    new JsonObject { ["item"] = "Giờ hẹn gặp", ["doc"] = 1, ["page"] = 2, ["quote"] = "lúc 14 giờ ngày 24/9/2026" },
-                    new JsonObject { ["item"] = "Bịa ra", ["doc"] = 1, ["page"] = 1, ["quote"] = "không hề có câu này" }),
+                    new JsonObject { ["item"] = "Giờ hẹn gặp", ["doc"] = 1, ["page"] = 2, ["quote"] = "lúc 14 giờ ngày 24/9/2026", ["slot"] = "name" },
+                    new JsonObject { ["item"] = "Bịa ra", ["doc"] = 1, ["page"] = 1, ["quote"] = "không hề có câu này", ["slot"] = "" }),
             }
             : Reply([.. AskedIds(r).Select(id => Value(id, "TRẦN THỊ B", "TRẦN THỊ B"))]));
 
         var result = await new RunEngine(ai, new RunOptions()).RunAsync(Input([S("name")], checkMissing: true));
 
-        Assert.Equal(new MissingItem("Giờ hẹn gặp", 0, 2, "lúc 14 giờ ngày 24/9/2026"), result.Missing.Single());
+        // The AI also names the place that would take the information.
+        Assert.Equal(new MissingItem("Giờ hẹn gặp", 0, 2, "lúc 14 giờ ngày 24/9/2026", "name"), result.Missing.Single());
         Assert.Contains("TRẦN THỊ B", ai.Requests.Single(r => r.Purpose == "run-missing").Input);
     }
 }
